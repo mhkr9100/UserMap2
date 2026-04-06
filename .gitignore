@@ -6,3 +6,12 @@ dist
 .DS_Store
 
 .npm_cache
+
+# UserMap local data
+.usermap/
+
+# App-level node_modules (also covered by root)
+apps/server/node_modules
+apps/desktop/node_modules
+apps/server/dist
+apps/desktop/dist

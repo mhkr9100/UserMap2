@@ -1,31 +1,16 @@
 {
-  "name": "usermap",
+  "name": "usermap-root",
   "private": true,
   "version": "0.1.0",
-  "type": "module",
+  "workspaces": [
+    "apps/server",
+    "apps/desktop"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "lint": "tsc --noEmit"
-  },
-  "dependencies": {
-    "amazon-cognito-identity-js": "^6.3.16",
-    "framer-motion": "^12.23.12",
-    "lucide-react": "^0.575.0",
-    "motion": "^12.34.3",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.19.11",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.0.0",
-    "autoprefixer": "^10.4.27",
-    "postcss": "^8.5.8",
-    "tailwindcss": "^3.4.19",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "dev": "npm run dev:server & npm run dev:desktop",
+    "dev:server": "npm run dev --workspace=apps/server",
+    "dev:desktop": "npm run dev --workspace=apps/desktop",
+    "build": "npm run build --workspace=apps/server && npm run build --workspace=apps/desktop",
+    "lint": "npm run lint --workspace=apps/server && npm run lint --workspace=apps/desktop"
   }
 }
