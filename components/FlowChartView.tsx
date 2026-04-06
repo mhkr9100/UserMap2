@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { PageNode, UserMapImportance } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -213,7 +213,18 @@ export const FlowChartView: React.FC<FlowChartViewProps> = ({ tree }) => {
     const [dragging, setDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [selected, setSelected] = useState<string | null>(null);
-    const isDark = document.documentElement.classList.contains('dark');
+    const [isDark, setIsDark] = useState(() =>
+        document.documentElement.classList.contains('dark')
+    );
+
+    // Keep isDark in sync with theme changes applied via the <html> class.
+    useEffect(() => {
+        const observer = new MutationObserver(() => {
+            setIsDark(document.documentElement.classList.contains('dark'));
+        });
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        return () => observer.disconnect();
+    }, []);
 
     const { nodes, edges } = useMemo(() => layoutTree(tree), [tree]);
 
