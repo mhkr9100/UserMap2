@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Key, Bot, Users, MessageSquare, Sparkles, HelpCircle, ArrowRight, Loader2 } from 'lucide-react';
 import { authService } from '../services/auth';
 import { BrandMark } from './icons/BrandMark';

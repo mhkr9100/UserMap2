@@ -1,8 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PageNode, UserMapImportance } from '../types';
+import { FlowChartView } from './FlowChartView';
+import { TimelineView } from './TimelineView';
+import { ContextSearchView } from './ContextSearchView';
 
-type ViewMode = 'tree' | 'storyboard';
+type ViewMode = 'tree' | 'storyboard' | 'flowchart' | 'timeline' | 'search';
 type ExportFormat = 'prompt' | 'json';
 type ContextMode = 'all' | 'high-signal' | 'collaboration' | 'execution' | 'technical';
 
@@ -563,45 +566,73 @@ export const UserMapView: React.FC<UserMapViewProps> = ({
                 </div>
             ) : (
                 <>
+                    {/* ── Toolbar ─────────────────────────────────────── */}
                     <div className="border-b border-black/5 dark:border-white/5 px-6 py-4 space-y-4 bg-white/60 dark:bg-white/[0.02]">
                         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+                            {/* View mode switcher */}
                             <div>
                                 <div className="text-[9px] font-black uppercase tracking-[0.24em] text-gray-500 dark:text-white/35 mb-2">View</div>
                                 <div className="flex flex-wrap gap-2">
-                                    {(['tree', 'storyboard'] as ViewMode[]).map((mode) => (
+                                    {([
+                                        { id: 'tree', label: 'Tree' },
+                                        { id: 'storyboard', label: 'Storyboard' },
+                                        { id: 'flowchart', label: 'Flow Chart' },
+                                        { id: 'timeline', label: 'Timeline' },
+                                        { id: 'search', label: 'Search' },
+                                    ] as { id: ViewMode; label: string }[]).map(({ id, label }) => (
                                         <button
-                                            key={mode}
-                                            onClick={() => setViewMode(mode)}
-                                            className={`rounded-full px-4 py-2 text-[9px] font-black uppercase tracking-[0.18em] border transition-all ${viewMode === mode ? 'bg-gray-900 dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-600 dark:text-white/55 hover:border-black/20 dark:hover:border-white/20'}`}
+                                            key={id}
+                                            onClick={() => setViewMode(id)}
+                                            className={`rounded-full px-4 py-2 text-[9px] font-black uppercase tracking-[0.18em] border transition-all ${viewMode === id ? 'bg-gray-900 dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-600 dark:text-white/55 hover:border-black/20 dark:hover:border-white/20'}`}
                                         >
-                                            {mode}
+                                            {label}
                                         </button>
                                     ))}
                                 </div>
                             </div>
-                            <div className="xl:max-w-[60%]">
-                                <div className="text-[9px] font-black uppercase tracking-[0.24em] text-gray-500 dark:text-white/35 mb-2">Context Mode</div>
-                                <div className="flex flex-wrap gap-2">
-                                    {CONTEXT_MODES.map((mode) => (
-                                        <button
-                                            key={mode.id}
-                                            onClick={() => setContextMode(mode.id)}
-                                            className={`rounded-full px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] border transition-all ${contextMode === mode.id ? 'bg-emerald-600 text-white border-transparent dark:bg-emerald-400 dark:text-black' : 'bg-white dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-600 dark:text-white/55 hover:border-black/20 dark:hover:border-white/20'}`}
-                                            title={mode.description}
-                                        >
-                                            {mode.label}
-                                        </button>
-                                    ))}
+
+                            {/* Context mode — only for views that use the filtered tree */}
+                            {(viewMode === 'tree' || viewMode === 'storyboard' || viewMode === 'flowchart') && (
+                                <div className="xl:max-w-[60%]">
+                                    <div className="text-[9px] font-black uppercase tracking-[0.24em] text-gray-500 dark:text-white/35 mb-2">Context Mode</div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {CONTEXT_MODES.map((mode) => (
+                                            <button
+                                                key={mode.id}
+                                                onClick={() => setContextMode(mode.id)}
+                                                className={`rounded-full px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] border transition-all ${contextMode === mode.id ? 'bg-emerald-600 text-white border-transparent dark:bg-emerald-400 dark:text-black' : 'bg-white dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-600 dark:text-white/55 hover:border-black/20 dark:hover:border-white/20'}`}
+                                                title={mode.description}
+                                            >
+                                                {mode.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
-                        <p className="text-[11px] leading-6 text-gray-500 dark:text-white/45 max-w-3xl">
-                            {CONTEXT_MODES.find((item) => item.id === contextMode)?.description}
-                        </p>
+
+                        {/* Mode description */}
+                        {(viewMode === 'tree' || viewMode === 'storyboard' || viewMode === 'flowchart') && (
+                            <p className="text-[11px] leading-6 text-gray-500 dark:text-white/45 max-w-3xl">
+                                {CONTEXT_MODES.find((item) => item.id === contextMode)?.description}
+                            </p>
+                        )}
+                        {viewMode === 'timeline' && (
+                            <p className="text-[11px] leading-6 text-gray-500 dark:text-white/45 max-w-3xl">
+                                A chronological view of your context entries, sorted by date. Filter by signal strength to focus on what matters most.
+                            </p>
+                        )}
+                        {viewMode === 'search' && (
+                            <p className="text-[11px] leading-6 text-gray-500 dark:text-white/45 max-w-3xl">
+                                Search and filter your context by keyword, category, signal strength, source, or date range. Matching text is highlighted.
+                            </p>
+                        )}
                     </div>
 
-                    <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-[minmax(0,1.6fr)_22rem]">
-                        <div className="min-h-0 overflow-auto custom-scrollbar p-6">
+                    {/* ── Content area ────────────────────────────────── */}
+                    {viewMode === 'flowchart' ? (
+                        /* Flow Chart — full width, has internal detail panel */
+                        <div className="flex-1 min-h-0 p-6">
                             {isEmpty ? (
                                 <div className="h-full flex items-center justify-center text-center rounded-[28px] border border-dashed border-black/10 dark:border-white/10 bg-white/50 dark:bg-white/[0.02] px-8">
                                     <div>
@@ -611,73 +642,101 @@ export const UserMapView: React.FC<UserMapViewProps> = ({
                                         </p>
                                     </div>
                                 </div>
-                            ) : viewMode === 'tree' ? (
-                                <TreeNode node={filteredTree} depth={0} onUpdate={onUpdateNode} onDelete={onDeleteNode} onAdd={onAddNode} />
                             ) : (
-                                <div className="space-y-8 min-w-max pb-4">
-                                    <div className="flex justify-center">
-                                        <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-[9px] font-black uppercase tracking-[0.24em] text-emerald-700 dark:text-emerald-300">
-                                            UserMap Storyboard
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-5 items-start min-w-max">
-                                        {[...filteredTree.children].sort(compareNodes).map((category) => (
-                                            <StoryboardLane key={category.id} category={category} />
-                                        ))}
-                                    </div>
-                                </div>
+                                <FlowChartView tree={filteredTree} />
                             )}
                         </div>
-
-                        <aside className="min-h-0 overflow-auto custom-scrollbar border-t xl:border-t-0 xl:border-l border-black/5 dark:border-white/5 bg-white/70 dark:bg-white/[0.02] p-6 space-y-5">
-                            <div className="space-y-2">
-                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-900 dark:text-white">Context Export</h3>
-                                <p className="text-[11px] leading-6 text-gray-500 dark:text-white/45">
-                                    Export the currently selected UserMap slice as a reusable prompt or JSON package.
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                                {(['prompt', 'json'] as ExportFormat[]).map((format) => (
-                                    <button
-                                        key={format}
-                                        onClick={() => setExportFormat(format)}
-                                        className={`rounded-2xl px-4 py-3 text-[9px] font-black uppercase tracking-[0.18em] border transition-all ${exportFormat === format ? 'bg-gray-900 dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-600 dark:text-white/55 hover:border-black/20 dark:hover:border-white/20'}`}
-                                    >
-                                        {format}
-                                    </button>
-                                ))}
-                            </div>
-
-                            <div className="rounded-3xl border border-black/10 dark:border-white/10 bg-[#F8F9FA] dark:bg-[#101214] p-4 space-y-3">
-                                <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <div className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-500 dark:text-white/35">Preview</div>
-                                        <div className="text-[10px] text-gray-500 dark:text-white/45">{exportEntries.length} exported nodes</div>
+                    ) : viewMode === 'timeline' ? (
+                        /* Timeline — full width, scrollable */
+                        <div className="flex-1 min-h-0 overflow-auto custom-scrollbar p-6">
+                            <TimelineView tree={tree} />
+                        </div>
+                    ) : viewMode === 'search' ? (
+                        /* Search — full width, has internal summary */
+                        <div className="flex-1 min-h-0 overflow-auto custom-scrollbar p-6">
+                            <ContextSearchView tree={tree} />
+                        </div>
+                    ) : (
+                        /* Tree / Storyboard — with export sidebar */
+                        <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-[minmax(0,1.6fr)_22rem]">
+                            <div className="min-h-0 overflow-auto custom-scrollbar p-6">
+                                {isEmpty ? (
+                                    <div className="h-full flex items-center justify-center text-center rounded-[28px] border border-dashed border-black/10 dark:border-white/10 bg-white/50 dark:bg-white/[0.02] px-8">
+                                        <div>
+                                            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-gray-800 dark:text-white/75">No Nodes In This Mode</h3>
+                                            <p className="mt-3 text-sm text-gray-500 dark:text-white/45 max-w-md">
+                                                This filter is working correctly, but it does not currently match any nodes in your UserMap.
+                                            </p>
+                                        </div>
                                     </div>
-                                    <button
-                                        onClick={handleCopyExport}
-                                        className="rounded-full bg-gray-900 dark:bg-white px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-white dark:text-black hover:bg-black dark:hover:bg-white/90 transition-colors"
-                                    >
-                                        {copyState === 'copied' ? 'Copied' : `Copy ${exportFormat}`}
-                                    </button>
-                                </div>
-                                <pre className="max-h-[28rem] overflow-auto custom-scrollbar rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-black/30 p-4 text-[11px] leading-6 text-gray-700 dark:text-white/70 whitespace-pre-wrap break-words">
-                                    {exportPreview}
-                                </pre>
+                                ) : viewMode === 'tree' ? (
+                                    <TreeNode node={filteredTree} depth={0} onUpdate={onUpdateNode} onDelete={onDeleteNode} onAdd={onAddNode} />
+                                ) : (
+                                    <div className="space-y-8 min-w-max pb-4">
+                                        <div className="flex justify-center">
+                                            <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-[9px] font-black uppercase tracking-[0.24em] text-emerald-700 dark:text-emerald-300">
+                                                UserMap Storyboard
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-5 items-start min-w-max">
+                                            {[...filteredTree.children].sort(compareNodes).map((category) => (
+                                                <StoryboardLane key={category.id} category={category} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
-                            <div className="rounded-3xl border border-black/10 dark:border-white/10 bg-[#F8F9FA] dark:bg-[#101214] p-4 space-y-3">
-                                <div className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-500 dark:text-white/35">Mode Guidance</div>
-                                <ul className="space-y-2 text-[11px] leading-6 text-gray-600 dark:text-white/50">
-                                    <li><span className="font-bold text-gray-900 dark:text-white">Focused Context</span> is best for fast context injection.</li>
-                                    <li><span className="font-bold text-gray-900 dark:text-white">AI Collaboration</span> is best for prompt/system behavior.</li>
-                                    <li><span className="font-bold text-gray-900 dark:text-white">Execution</span> is best for project or business workflows.</li>
-                                    <li><span className="font-bold text-gray-900 dark:text-white">Technical</span> is best for coding and architecture work.</li>
-                                </ul>
-                            </div>
-                        </aside>
-                    </div>
+                            <aside className="min-h-0 overflow-auto custom-scrollbar border-t xl:border-t-0 xl:border-l border-black/5 dark:border-white/5 bg-white/70 dark:bg-white/[0.02] p-6 space-y-5">
+                                <div className="space-y-2">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-900 dark:text-white">Context Export</h3>
+                                    <p className="text-[11px] leading-6 text-gray-500 dark:text-white/45">
+                                        Export the currently selected UserMap slice as a reusable prompt or JSON package.
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    {(['prompt', 'json'] as ExportFormat[]).map((format) => (
+                                        <button
+                                            key={format}
+                                            onClick={() => setExportFormat(format)}
+                                            className={`rounded-2xl px-4 py-3 text-[9px] font-black uppercase tracking-[0.18em] border transition-all ${exportFormat === format ? 'bg-gray-900 dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-600 dark:text-white/55 hover:border-black/20 dark:hover:border-white/20'}`}
+                                        >
+                                            {format}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="rounded-3xl border border-black/10 dark:border-white/10 bg-[#F8F9FA] dark:bg-[#101214] p-4 space-y-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <div className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-500 dark:text-white/35">Preview</div>
+                                            <div className="text-[10px] text-gray-500 dark:text-white/45">{exportEntries.length} exported nodes</div>
+                                        </div>
+                                        <button
+                                            onClick={handleCopyExport}
+                                            className="rounded-full bg-gray-900 dark:bg-white px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-white dark:text-black hover:bg-black dark:hover:bg-white/90 transition-colors"
+                                        >
+                                            {copyState === 'copied' ? 'Copied' : `Copy ${exportFormat}`}
+                                        </button>
+                                    </div>
+                                    <pre className="max-h-[28rem] overflow-auto custom-scrollbar rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-black/30 p-4 text-[11px] leading-6 text-gray-700 dark:text-white/70 whitespace-pre-wrap break-words">
+                                        {exportPreview}
+                                    </pre>
+                                </div>
+
+                                <div className="rounded-3xl border border-black/10 dark:border-white/10 bg-[#F8F9FA] dark:bg-[#101214] p-4 space-y-3">
+                                    <div className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-500 dark:text-white/35">Mode Guidance</div>
+                                    <ul className="space-y-2 text-[11px] leading-6 text-gray-600 dark:text-white/50">
+                                        <li><span className="font-bold text-gray-900 dark:text-white">Focused Context</span> is best for fast context injection.</li>
+                                        <li><span className="font-bold text-gray-900 dark:text-white">AI Collaboration</span> is best for prompt/system behavior.</li>
+                                        <li><span className="font-bold text-gray-900 dark:text-white">Execution</span> is best for project or business workflows.</li>
+                                        <li><span className="font-bold text-gray-900 dark:text-white">Technical</span> is best for coding and architecture work.</li>
+                                    </ul>
+                                </div>
+                            </aside>
+                        </div>
+                    )}
                 </>
             )}
         </div>

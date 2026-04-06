@@ -1,4 +1,4 @@
-# UserMap — Phase 1 + Phase 2
+# UserMap — Phase 1 + Phase 2 + Phase 3
 
 > **Your personal context hub** — connect your tools once and let AI know your world.
 
@@ -12,9 +12,49 @@ Standalone workspace for capturing, organizing, and exporting reusable context �
 |---|---|---|
 | **Phase 1** | ✅ Complete | Auth, UserMap tree, memory, context import/export, server-side consolidation, Slack OAuth |
 | **Phase 2** | ✅ Complete | GitHub and Gmail OAuth connections; unified local context query across all tools |
-| **Phase 3** | 🔜 Planned | Google Drive, Notion, Linear adapters |
+| **Phase 3** | ✅ Complete | Flow Chart view, Timeline view, Advanced Search/Filter UI with keyword highlighting |
 | **Phase 4** | 🔜 Planned | Background sync agent, automatic context injection into AI tools |
 | **Phase 5** | 🔜 Planned | Local Ollama embeddings, semantic vector search across all sources |
+
+---
+
+## Phase 3 — Advanced Data Representations
+
+Phase 3 adds three new ways to explore your context alongside the existing Tree and Storyboard views.
+
+### View Modes
+
+Switch between views using the **View** selector in the toolbar (visible whenever your UserMap has data):
+
+| View | Description |
+|---|---|
+| **Tree** | Expandable/collapsible tree — the default editing view. |
+| **Storyboard** | Kanban-style lanes per category — great for a bird's-eye overview. |
+| **Flow Chart** | Interactive SVG graph — drag to pan, scroll to zoom, click to highlight connections. |
+| **Timeline** | Chronological list of context entries grouped by month, filtered by signal strength. |
+| **Search** | Full-text search with filters for keyword, category, signal, source, and date range. |
+
+### Flow Chart
+
+- Pan the canvas by dragging; zoom with the scroll wheel or ± buttons.
+- Click any node to select it and see its details in the side panel.
+- Directed edges show parent → child relationships.
+- Nodes are color-coded by signal strength (amber = high, emerald = medium, gray = low).
+- The **Context Mode** filter (Focused, AI Collaboration, Execution, Technical) applies here too.
+
+### Timeline
+
+- Entries with a `sourceDate` are grouped by month and sorted newest-first (or oldest-first).
+- Use the **Signal** filter to focus on high-priority entries.
+- Entries without a date appear in a separate **No Date** section.
+- Long values can be expanded inline.
+
+### Advanced Search & Filter
+
+- Full-text keyword search with **highlighted matches** in both label and value.
+- Filter by **Signal** (high / medium / low), **Date range** (last 7 d, 30 d, 90 d, 1 year), **Category**, and **Source** (when multiple tools are connected).
+- A **Summary panel** shows result count, signal breakdown, top categories, and source distribution.
+- Filters can be combined freely and cleared with one click.
 
 ---
 
