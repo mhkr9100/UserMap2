@@ -1,20 +1,20 @@
-# UserMap — Phase 1 MVP
+# UserMap — Phase 1 + Phase 2
 
 > **Your personal context hub** — connect your tools once and let AI know your world.
 
-UserMap runs **entirely on your machine**. No cloud account required. Install it, connect your tools (starting with Slack), and UserMap exposes a local API that AI assistants and browser extensions can query for context about your work.
+Standalone workspace for capturing, organizing, and exporting reusable context — with one-click tool integrations that keep all data strictly local.
 
 ---
 
-## What's in Phase 1
+## What's Included
 
-| Piece | What it does |
-|---|---|
-| **`apps/server`** | TypeScript + Express local API server with SQLite storage |
-| **`apps/desktop`** | Simple React dashboard — connect tools, view connections, query context |
-| **Slack OAuth** | One-click Connect → popup login → done, no API keys to copy |
-| **Context API** | `POST /api/context` — keyword/FTS search over your local data store |
-| **Adapter pattern** | Extensible base class ready for GitHub, Gmail, Drive, … in Phase 1.1 |
+| Phase | Status | Features |
+|---|---|---|
+| **Phase 1** | ✅ Complete | Auth, UserMap tree, memory, context import/export, server-side consolidation, Slack OAuth |
+| **Phase 2** | ✅ Complete | GitHub and Gmail OAuth connections; unified local context query across all tools |
+| **Phase 3** | 🔜 Planned | Google Drive, Notion, Linear adapters |
+| **Phase 4** | 🔜 Planned | Background sync agent, automatic context injection into AI tools |
+| **Phase 5** | 🔜 Planned | Local Ollama embeddings, semantic vector search across all sources |
 
 ---
 
@@ -31,8 +31,10 @@ npm install          # installs workspace deps for server + desktop
 ### 2. Configure environment
 
 ```bash
-cp .env.example apps/server/.env
-# Edit apps/server/.env with your Slack app credentials (see below)
+cp .env.example .env
+# Edit .env with your credentials (see sections below)
+cp apps/server/.env.example apps/server/.env
+# Edit apps/server/.env with your Slack app credentials
 ```
 
 ### 3. Run local dev (server + desktop)
@@ -42,15 +44,52 @@ npm run dev
 ```
 
 - **API server** → `http://localhost:5185`
-- **Desktop UI** → `http://localhost:5173`
-
-Open `http://localhost:5173` in your browser.
+- **Desktop UI** → `http://localhost:3000`
 
 ---
 
-## Slack App Setup
+## Required Environment Variables
 
-You need a Slack app to enable the Connect Slack button.
+### Phase 1 (Core)
+
+| Variable | Description |
+|---|---|
+| `VITE_AUTH_POOL_ID` | AWS Cognito User Pool ID |
+| `VITE_AUTH_CLIENT_ID` | AWS Cognito App Client ID |
+| `VITE_API_BASE_URL` | Base URL of the UserMap backend API |
+| `PORT` | Local API server port (default: 5185) |
+| `APP_URL` | Local server base URL |
+
+### Phase 2 (Tool Integrations)
+
+| Variable | Tool | Where to get it |
+|---|---|---|
+| `VITE_SLACK_CLIENT_ID` | Slack | [api.slack.com/apps](https://api.slack.com/apps) |
+| `VITE_SLACK_CLIENT_SECRET` | Slack | [api.slack.com/apps](https://api.slack.com/apps) |
+| `VITE_GITHUB_CLIENT_ID` | GitHub | [github.com/settings/developers](https://github.com/settings/developers) |
+| `VITE_GITHUB_CLIENT_SECRET` | GitHub | [github.com/settings/developers](https://github.com/settings/developers) |
+| `VITE_GOOGLE_CLIENT_ID` | Gmail | [console.cloud.google.com](https://console.cloud.google.com/apis/credentials) |
+| `VITE_GOOGLE_CLIENT_SECRET` | Gmail | [console.cloud.google.com](https://console.cloud.google.com/apis/credentials) |
+
+Copy `.env.example` to `.env` and fill in your values before running locally.
+
+---
+
+## Connecting Tools (Phase 2)
+
+1. Click the **Tools** button in the top-right header.
+2. Click **Connect** next to Slack, GitHub, or Gmail.
+3. An OAuth popup opens — log in and authorize UserMap.
+4. The popup closes and the tool shows **Connected** ✅.
+5. GitHub users can also paste a **Personal Access Token** instead of OAuth.
+
+All tokens are stored in your browser's `localStorage` only — nothing leaves your device.
+
+---
+
+## Slack App Setup (Phase 1 Server)
+
+You need a Slack app to enable the Connect Slack button on the server side.
 
 1. Go to **https://api.slack.com/apps** → Create New App → From scratch.
 2. Name it **UserMap** and select your workspace.
@@ -73,7 +112,7 @@ You need a Slack app to enable the Connect Slack button.
 
 ---
 
-## API Reference
+## Server API Reference
 
 All endpoints served from `http://localhost:5185`.
 
@@ -113,38 +152,37 @@ Response:
 
 ---
 
+## Unified Context Query (Phase 2 Frontend)
+
+Once tools are connected, context can be queried programmatically from the same local origin:
+
+```ts
+import { queryContext } from './services/contextQuery';
+
+const result = await queryContext({
+  query: 'project deadline next week',
+  sources: ['slack', 'github', 'gmail'], // optional — defaults to all connected
+  limit: 10
+});
+
+// result.results is ToolContextItem[], sorted newest-first, tagged by source
+```
+
+---
+
+## Adding a New Integration
+
+1. Create `services/integrations/<tool>.ts` — extend `BaseAdapter`, implement `buildOAuthUrl`, `exchangeCode`, and `fetchContext`.
+2. Add the singleton to `ADAPTERS` in `services/integrations/index.ts`.
+3. Add display metadata to `INTEGRATION_META` in the same file.
+4. Add `VITE_<TOOL>_CLIENT_ID` / `VITE_<TOOL>_CLIENT_SECRET` to `.env.example`.
+5. Done — the UI picks it up automatically. No other files need to change.
+
+---
+
 ## Data Storage
 
 UserMap stores everything in `~/.usermap/usermap.db` (SQLite).  
 No data ever leaves your machine.
 
 To change the storage path set `USERMAP_DATA_DIR` in `apps/server/.env`.
-
----
-
-## Current Limitations
-
-- **No background sync yet** — documents must be ingested via the API directly (Phase 1.1 adds the Slack sync worker).
-- **Keyword search only** — FTS5 full-text search is fast but not semantic. Chroma vector search is planned for Phase 1.1.
-- **Slack only** — GitHub, Gmail, Google Drive adapters come in Phase 1.1.
-- **No installer yet** — run from source for now; a packaged desktop app (Tauri) is on the roadmap.
-
----
-
-## Roadmap
-
-### Phase 1.1
-- Background Slack sync worker (polls every N minutes)
-- Chroma semantic search (replaces FTS5, same API contract)
-- GitHub adapter
-
-### Phase 2
-- Gmail + Google Drive adapters
-- ChatGPT / Claude plugin that calls `/api/context` automatically
-- Browser extension for context injection
-
-### Phase 3
-- Packaged desktop installer (Tauri) — one-click download from website
-- Flow chart / timeline views of aggregated data
-- Multi-account support per tool
-

@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { LogOut, Moon, Sun } from 'lucide-react';
+import { LogOut, Moon, Sun, Plug } from 'lucide-react';
 import { ContextImportDialog } from './components/ContextImportDialog';
+import { IntegrationsPanel } from './components/IntegrationsPanel';
 import { LoginScreen } from './components/LoginScreen';
 import { UserMapView } from './components/UserMapView';
 import { BrandMark } from './components/icons/BrandMark';
 import { useAuth } from './hooks/useAuth';
 import { useUserMap } from './hooks/useUserMap';
+import { useIntegrations } from './hooks/useIntegrations';
 
 const App: React.FC = () => {
   const { currentUser, isInitializing, login, logout } = useAuth();
@@ -18,9 +20,11 @@ const App: React.FC = () => {
     isConsolidating,
     ingestExternalMemory
   } = useUserMap(currentUser);
+  const { integrations } = useIntegrations();
 
   const [isMemoryImportOpen, setIsMemoryImportOpen] = useState(false);
   const [isMemoryImporting, setIsMemoryImporting] = useState(false);
+  const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) return 'dark';
     return 'light';
@@ -61,6 +65,10 @@ const App: React.FC = () => {
   }, [theme]);
 
   const userLabel = useMemo(() => currentUser?.name || currentUser?.email || 'Architect', [currentUser]);
+  const connectedCount = useMemo(
+    () => integrations.filter((i) => i.status === 'connected').length,
+    [integrations]
+  );
 
   if (isInitializing) {
     return (
@@ -88,6 +96,20 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Connected tools indicator + panel trigger */}
+            <button
+              onClick={() => setIsIntegrationsPanelOpen(true)}
+              className="h-10 px-3 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.04] text-[10px] font-black uppercase tracking-[0.14em] text-gray-700 dark:text-white/70 flex items-center gap-2"
+              title="Connected Tools"
+            >
+              <Plug size={14} />
+              <span className="hidden sm:inline">Tools</span>
+              {connectedCount > 0 && (
+                <span className="h-4 min-w-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center">
+                  {connectedCount}
+                </span>
+              )}
+            </button>
             <button
               onClick={toggleTheme}
               className="h-10 w-10 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.04] flex items-center justify-center text-gray-600 dark:text-white/60"
@@ -121,6 +143,11 @@ const App: React.FC = () => {
         isImporting={isMemoryImporting}
         onSkip={handleSkipMemoryImport}
         onImport={handleImportMemory}
+      />
+
+      <IntegrationsPanel
+        isOpen={isIntegrationsPanelOpen}
+        onClose={() => setIsIntegrationsPanelOpen(false)}
       />
     </div>
   );
