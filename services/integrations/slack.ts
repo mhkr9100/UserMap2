@@ -71,14 +71,16 @@ export class SlackAdapter extends BaseAdapter {
         // Slack requires the token exchange to be done server-side (or via a
         // proxy) because the client secret must not be exposed to the browser.
         // For a fully local desktop build (e.g. Tauri), you would call a local
-        // sidecar here. For the browser-only build we delegate to a lightweight
-        // PKCE flow or a local proxy endpoint.
+        // sidecar here.  For the browser-only build this call is forwarded to a
+        // lightweight local proxy at the path below.  A backend proxy (or Tauri
+        // sidecar) is required — there is no browser-side fallback for this
+        // exchange because the client secret must remain server-side.
         //
-        // In this scaffold we call the local proxy endpoint expected at:
-        //   POST /api/integrations/slack/token
+        // Expected endpoint: POST /api/integrations/slack/token
+        //   Request:  { code: string, redirect_uri: string }
+        //   Response: { ok: boolean, access_token?: string, team?: { name: string }, error?: string }
         //
-        // If you are running in dev without a backend, set up a simple Express
-        // route or use the Tauri sidecar (see docs/integrations.md).
+        // See docs/integrations.md for a minimal Express implementation.
         const response = await fetch('/api/integrations/slack/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -86,9 +88,6 @@ export class SlackAdapter extends BaseAdapter {
         });
 
         if (!response.ok) {
-            // Graceful fallback: if no backend proxy is available, parse the
-            // code directly (only safe when running as a local desktop app with
-            // no public network exposure).
             const data: SlackOAuthResponse = await response.json().catch(() => ({ ok: false }));
             throw new Error(data.error || `Slack token exchange failed (${response.status}).`);
         }

@@ -14,7 +14,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import type { IntegrationId, IntegrationStatus, IntegrationMeta } from '../types';
+import type { IntegrationId, IntegrationStatus, IntegrationMeta, IntegrationConnection } from '../types';
 import { ADAPTERS, INTEGRATION_META } from '../services/integrations';
 
 /** Metadata + live runtime status. */
@@ -22,6 +22,8 @@ export interface EnrichedIntegration extends IntegrationMeta {
     status: IntegrationStatus;
     /** Display name of the connected account, if available. */
     accountName?: string;
+    /** Whether this integration supports PAT-based connection. */
+    supportsPAT: boolean;
 }
 
 function readAllStatuses(): Record<IntegrationId, IntegrationStatus> {
@@ -98,21 +100,18 @@ export function useIntegrations() {
     }, [setStatus]);
 
     /**
-     * PAT-based connection shortcut (currently supported by GitHubAdapter).
+     * PAT-based connection shortcut (supported by adapters where `supportsPAT === true`).
      * Returns the connected account name on success.
      */
     const connectWithPAT = useCallback(async (id: IntegrationId, pat: string): Promise<string | undefined> => {
         const adapter = ADAPTERS[id];
         if (!adapter) throw new Error(`Unknown integration: ${id}`);
+        if (!adapter.supportsPAT) throw new Error(`PAT connection is not supported for ${id}.`);
 
         setStatus(id, 'connecting');
         try {
-            // Only GitHubAdapter exposes connectWithPAT — guard via duck typing.
-            const patAdapter = adapter as { connectWithPAT?: (t: string) => Promise<{ accountName?: string }> };
-            if (typeof patAdapter.connectWithPAT !== 'function') {
-                throw new Error(`PAT connection is not supported for ${id}.`);
-            }
-
+            // BaseAdapter subclasses that set supportsPAT = true implement connectWithPAT.
+            const patAdapter = adapter as unknown as { connectWithPAT(t: string): Promise<IntegrationConnection> };
             const connection = await patAdapter.connectWithPAT(pat);
             setStatus(id, 'connected');
             setAccountNames((prev) => ({ ...prev, [id]: connection.accountName }));
@@ -141,7 +140,8 @@ export function useIntegrations() {
     const integrations: EnrichedIntegration[] = INTEGRATION_META.map((meta) => ({
         ...meta,
         status: statuses[meta.id] || 'disconnected',
-        accountName: accountNames[meta.id]
+        accountName: accountNames[meta.id],
+        supportsPAT: ADAPTERS[meta.id]?.supportsPAT ?? false
     }));
 
     return { integrations, connect, connectWithPAT, disconnect, getStatus };

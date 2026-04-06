@@ -32,6 +32,9 @@ export interface ContextQueryOptions {
     limit?: number;
 }
 
+/** Hard cap on total results returned regardless of source count or limit. */
+const MAX_RESULTS = 50;
+
 /**
  * Query context from all connected (or specified) tool adapters.
  *
@@ -64,6 +67,8 @@ export async function queryContext(options: ContextQueryOptions): Promise<Contex
     const resultArrays = await Promise.all(fetchPromises);
 
     // Flatten and sort by date descending (newest first).
+    // Apply a fixed maximum cap to prevent unexpectedly large payloads when
+    // many tools are connected.
     const allItems: ToolContextItem[] = resultArrays
         .flat()
         .sort((a, b) => {
@@ -71,7 +76,7 @@ export async function queryContext(options: ContextQueryOptions): Promise<Contex
             const dateB = b.date ? new Date(b.date).getTime() : 0;
             return dateB - dateA;
         })
-        .slice(0, limit * adapterIds.length); // generous cap
+        .slice(0, MAX_RESULTS);
 
     return { query, results: allItems };
 }

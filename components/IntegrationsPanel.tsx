@@ -8,7 +8,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, XCircle, Loader2, Link2, Unlink, KeyRound, X } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Link2, Unlink, KeyRound, X, Puzzle } from 'lucide-react';
 import type { IntegrationId, IntegrationStatus } from '../types';
 import { useIntegrations } from '../hooks/useIntegrations';
 
@@ -137,14 +137,25 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ isOpen, on
                                     >
                                         {/* Tool row */}
                                         <div className="flex items-center gap-3">
+                                        <div className="relative h-8 w-8 shrink-0">
                                             <img
                                                 src={integration.logoUrl}
                                                 alt={integration.label}
                                                 className="h-8 w-8 rounded-lg object-contain bg-white border border-black/5 dark:border-white/10 p-1"
                                                 onError={(e) => {
-                                                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                                    e.currentTarget.style.display = 'none';
+                                                    const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                                                    if (fallback) fallback.style.display = 'flex';
                                                 }}
                                             />
+                                            <div
+                                                className="absolute inset-0 h-8 w-8 rounded-lg bg-gray-100 dark:bg-white/10 border border-black/5 dark:border-white/10 items-center justify-center text-gray-400 dark:text-white/30"
+                                                style={{ display: 'none' }}
+                                                aria-hidden="true"
+                                            >
+                                                <Puzzle size={16} />
+                                            </div>
+                                        </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="text-[12px] font-black text-gray-900 dark:text-white leading-tight">
                                                     {integration.label}
@@ -223,8 +234,8 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ isOpen, on
                                                             {isBusy ? 'Connecting…' : 'Connect'}
                                                         </button>
 
-                                                        {/* PAT shortcut for GitHub */}
-                                                        {integration.id === 'github' && (
+                                                        {/* PAT shortcut (only for adapters that support it) */}
+                                                        {integration.supportsPAT && (
                                                             <button
                                                                 onClick={() => { setPatInputId(integration.id); setPatValue(''); clearError(integration.id); }}
                                                                 disabled={isBusy}

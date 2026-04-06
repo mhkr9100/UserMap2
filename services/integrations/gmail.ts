@@ -28,6 +28,9 @@ import type { IntegrationId, IntegrationConnection, ToolContextItem } from '../.
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 const CLIENT_SECRET = import.meta.env.VITE_GOOGLE_CLIENT_SECRET as string | undefined;
 
+/** Maximum characters to include from an email body. */
+const MAX_EMAIL_BODY_LENGTH = 500;
+
 /** Gmail read-only + basic profile scopes. */
 const SCOPES = [
     'https://www.googleapis.com/auth/gmail.readonly',
@@ -235,7 +238,7 @@ export class GmailAdapter extends BaseAdapter {
                 body = extractPlainText(msg.payload as GmailMessagePart);
             }
             if (!body && msg.snippet) body = msg.snippet;
-            body = body.slice(0, 500);
+            body = body.slice(0, MAX_EMAIL_BODY_LENGTH);
 
             items.push({
                 source: 'gmail',

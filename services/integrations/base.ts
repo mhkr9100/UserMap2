@@ -19,6 +19,13 @@ export abstract class BaseAdapter {
     abstract readonly id: IntegrationId;
 
     /**
+     * Whether this adapter supports connecting via a Personal Access Token
+     * as an alternative to the OAuth popup flow.  Defaults to false.
+     * Override and return true in adapters that implement `connectWithPAT`.
+     */
+    readonly supportsPAT: boolean = false;
+
+    /**
      * Build the OAuth authorization URL to open in a popup.
      * @param redirectUri  The local redirect URI registered with the OAuth app.
      */
@@ -107,23 +114,34 @@ export abstract class BaseAdapter {
             const pendingKey = `usermap_oauth_pending_${this.id}`;
             localStorage.removeItem(pendingKey);
 
+            let settled = false;
+
+            const settle = (fn: () => void) => {
+                if (settled) return;
+                settled = true;
+                window.clearInterval(interval);
+                window.clearTimeout(timeout);
+                fn();
+            };
+
             // Poll localStorage for the callback result (set by the redirect page).
             const interval = window.setInterval(() => {
                 try {
                     if (popup.closed) {
-                        window.clearInterval(interval);
-                        const stored = localStorage.getItem(pendingKey);
-                        if (stored) {
-                            const { code, error } = JSON.parse(stored) as { code?: string; error?: string };
-                            localStorage.removeItem(pendingKey);
-                            if (code) {
-                                resolve(code);
+                        settle(() => {
+                            const stored = localStorage.getItem(pendingKey);
+                            if (stored) {
+                                const { code, error } = JSON.parse(stored) as { code?: string; error?: string };
+                                localStorage.removeItem(pendingKey);
+                                if (code) {
+                                    resolve(code);
+                                } else {
+                                    reject(new Error(error || 'OAuth cancelled.'));
+                                }
                             } else {
-                                reject(new Error(error || 'OAuth cancelled.'));
+                                reject(new Error('OAuth popup closed without completing.'));
                             }
-                        } else {
-                            reject(new Error('OAuth popup closed without completing.'));
-                        }
+                        });
                     }
                 } catch {
                     // Cross-origin access errors — ignore until popup closes.
@@ -132,17 +150,11 @@ export abstract class BaseAdapter {
 
             // Safety timeout: 5 minutes.
             const timeout = window.setTimeout(() => {
-                window.clearInterval(interval);
-                if (!popup.closed) popup.close();
-                reject(new Error('OAuth timed out. Please try again.'));
+                settle(() => {
+                    if (!popup.closed) popup.close();
+                    reject(new Error('OAuth timed out. Please try again.'));
+                });
             }, 5 * 60 * 1000);
-
-            // Clean up timeout once the interval resolves/rejects.
-            const cleanup = () => window.clearTimeout(timeout);
-            void Promise.race([
-                new Promise<void>((res) => { const orig = resolve; resolve = (v) => { cleanup(); orig(v); res(); }; }),
-                new Promise<void>((_, rej) => { const orig = reject; reject = (e) => { cleanup(); orig(e); rej(e); }; })
-            ]).catch(() => {/* intentional */});
         });
     }
 }
