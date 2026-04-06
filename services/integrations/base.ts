@@ -14,6 +14,11 @@
 
 import type { IntegrationId, IntegrationConnection, ToolContextItem } from '../../types';
 
+/** How often (ms) to poll localStorage for the OAuth callback result. */
+const POPUP_POLL_INTERVAL_MS = 400;
+/** Maximum time (ms) to wait for the OAuth popup before timing out (5 minutes). */
+const OAUTH_TIMEOUT_MS = 5 * 60 * 1000;
+
 export abstract class BaseAdapter {
     /** Unique identifier matching IntegrationId. */
     abstract readonly id: IntegrationId;
@@ -146,15 +151,15 @@ export abstract class BaseAdapter {
                 } catch {
                     // Cross-origin access errors — ignore until popup closes.
                 }
-            }, 400);
+            }, POPUP_POLL_INTERVAL_MS);
 
-            // Safety timeout: 5 minutes.
+            // Safety timeout.
             const timeout = window.setTimeout(() => {
                 settle(() => {
                     if (!popup.closed) popup.close();
                     reject(new Error('OAuth timed out. Please try again.'));
                 });
-            }, 5 * 60 * 1000);
+            }, OAUTH_TIMEOUT_MS);
         });
     }
 }

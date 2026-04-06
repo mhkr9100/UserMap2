@@ -30,7 +30,7 @@ const CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID as string | undefined;
 const CLIENT_SECRET = import.meta.env.VITE_GITHUB_CLIENT_SECRET as string | undefined;
 
 /** Maximum characters to include from a PR or issue body. */
-const MAX_PR_BODY_LENGTH = 200;
+const MAX_BODY_LENGTH = 200;
 /** Maximum characters to include from a comment body. */
 const MAX_COMMENT_LENGTH = 300;
 
@@ -194,13 +194,13 @@ export class GitHubAdapter extends BaseAdapter {
                 const pr = event.payload?.pull_request;
                 if (!pr) continue;
                 title = pr.title;
-                text = `Pull request: ${pr.title}${pr.body ? ` — ${pr.body.slice(0, MAX_PR_BODY_LENGTH)}` : ''}`;
+                text = `Pull request: ${pr.title}${pr.body ? ` — ${pr.body.slice(0, MAX_BODY_LENGTH)}` : ''}`;
                 meta.url = pr.html_url;
             } else if (event.type === 'IssuesEvent') {
                 const issue = event.payload?.issue;
                 if (!issue) continue;
                 title = issue.title;
-                text = `Issue: ${issue.title}${issue.body ? ` — ${issue.body.slice(0, MAX_PR_BODY_LENGTH)}` : ''}`;
+                text = `Issue: ${issue.title}${issue.body ? ` — ${issue.body.slice(0, MAX_BODY_LENGTH)}` : ''}`;
                 meta.url = issue.html_url;
             } else if (event.type === 'IssueCommentEvent') {
                 const comment = event.payload?.comment;

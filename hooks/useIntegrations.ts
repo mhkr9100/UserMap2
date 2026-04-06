@@ -17,6 +17,15 @@ import { useState, useCallback, useEffect } from 'react';
 import type { IntegrationId, IntegrationStatus, IntegrationMeta, IntegrationConnection } from '../types';
 import { ADAPTERS, INTEGRATION_META } from '../services/integrations';
 
+/**
+ * Adapters that support Personal Access Token (PAT) authentication as an
+ * alternative to the OAuth popup flow must implement this interface and set
+ * `supportsPAT = true` on the BaseAdapter.
+ */
+interface PATSupportingAdapter {
+    connectWithPAT(pat: string): Promise<IntegrationConnection>;
+}
+
 /** Metadata + live runtime status. */
 export interface EnrichedIntegration extends IntegrationMeta {
     status: IntegrationStatus;
@@ -111,7 +120,7 @@ export function useIntegrations() {
         setStatus(id, 'connecting');
         try {
             // BaseAdapter subclasses that set supportsPAT = true implement connectWithPAT.
-            const patAdapter = adapter as unknown as { connectWithPAT(t: string): Promise<IntegrationConnection> };
+            const patAdapter = adapter as unknown as PATSupportingAdapter;
             const connection = await patAdapter.connectWithPAT(pat);
             setStatus(id, 'connected');
             setAccountNames((prev) => ({ ...prev, [id]: connection.accountName }));
