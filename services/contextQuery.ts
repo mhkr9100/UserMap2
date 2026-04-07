@@ -26,7 +26,7 @@ import { ADAPTERS } from './integrations';
 export interface ContextQueryOptions {
     /** Free-text search passed to each adapter. */
     query: string;
-    /** Which tools to query. Defaults to all connected tools. */
+    /** Which tools to query. Defaults to all connected data-source tools (excludes AI assistants). */
     sources?: IntegrationId[];
     /** Maximum items to return in total (soft cap per source = limit). */
     limit?: number;
@@ -36,7 +36,10 @@ export interface ContextQueryOptions {
 const MAX_RESULTS = 50;
 
 /**
- * Query context from all connected (or specified) tool adapters.
+ * Query context from all connected (or specified) data-source tool adapters.
+ *
+ * AI assistant adapters (ChatGPT, Claude, Gemini, Ollama) are excluded
+ * automatically — they don't produce context items, they consume them.
  *
  * Results from different sources are interleaved chronologically so the caller
  * gets the most recent, most relevant context regardless of origin.
@@ -44,8 +47,10 @@ const MAX_RESULTS = 50;
 export async function queryContext(options: ContextQueryOptions): Promise<ContextQueryResponse> {
     const { query, sources, limit = 10 } = options;
 
-    // Determine which adapters to query.
-    const adapterIds: IntegrationId[] = sources || (Object.keys(ADAPTERS) as IntegrationId[]);
+    // Determine which adapters to query — skip AI assistants (they return []).
+    const allIds = Object.keys(ADAPTERS) as IntegrationId[];
+    const adapterIds: IntegrationId[] = sources
+        || allIds.filter((id) => !ADAPTERS[id]?.isAIAssistant);
 
     // Fire all adapter fetches concurrently.
     const fetchPromises = adapterIds.map(async (id): Promise<ToolContextItem[]> => {

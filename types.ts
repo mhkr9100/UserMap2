@@ -21,11 +21,14 @@ export interface PageNode {
 }
 
 // ---------------------------------------------------------------------------
-// Integrations (Phase 2)
+// Integrations (Phase 2-4)
 // ---------------------------------------------------------------------------
 
 /** Canonical tool identifiers supported by UserMap. */
-export type IntegrationId = 'slack' | 'github' | 'gmail';
+export type IntegrationId = 'slack' | 'github' | 'gmail' | 'chatgpt' | 'claude' | 'gemini' | 'ollama';
+
+/** Broad category an integration belongs to. */
+export type IntegrationCategory = 'data-source' | 'ai-assistant';
 
 /** Runtime status of a single integration. */
 export type IntegrationStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -51,6 +54,8 @@ export interface IntegrationMeta {
   description: string;
   /** URL of the tool's logo / icon asset. */
   logoUrl: string;
+  /** Broad category: data source or AI assistant. */
+  category: IntegrationCategory;
 }
 
 /** A single unit of context retrieved from a connected tool. */
@@ -71,4 +76,21 @@ export interface ToolContextItem {
 export interface ContextQueryResponse {
   query: string;
   results: ToolContextItem[];
+}
+
+// ---------------------------------------------------------------------------
+// AI Chat (Phase 4)
+// ---------------------------------------------------------------------------
+
+/** A single message in an AI chat conversation. */
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+/** Response from an AI adapter's sendMessage call. */
+export interface AIChatResponse {
+  text: string;
+  /** Model name returned by the provider (if available). */
+  model?: string;
 }

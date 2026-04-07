@@ -6,6 +6,8 @@
  *    and connected account name.
  *  - `connect(id)`: open the OAuth popup and handle the authorization flow.
  *  - `connectWithPAT(id, pat)`: alternative PAT-based flow (GitHub only for now).
+ *  - `connectWithApiKey(id, key)`: API key flow for AI assistant integrations.
+ *  - `connectDirect(id)`: one-click local bridge (Ollama — no credentials needed).
  *  - `disconnect(id)`: clear the stored connection token.
  *  - `getStatus(id)`: current IntegrationStatus for a given tool.
  *
@@ -33,6 +35,12 @@ export interface EnrichedIntegration extends IntegrationMeta {
     accountName?: string;
     /** Whether this integration supports PAT-based connection. */
     supportsPAT: boolean;
+    /** Whether this integration connects via an API key (AI assistants). */
+    supportsApiKey: boolean;
+    /** Whether this integration connects to a local service without credentials. */
+    supportsLocalBridge: boolean;
+    /** Whether this adapter is an AI assistant (shows in AI section, enables chat). */
+    isAIAssistant: boolean;
 }
 
 function readAllStatuses(): Record<IntegrationId, IntegrationStatus> {
@@ -131,6 +139,48 @@ export function useIntegrations() {
         }
     }, [setStatus]);
 
+    /**
+     * API key connection for AI assistant adapters (supportsApiKey === true).
+     * Returns the connected account name on success.
+     */
+    const connectWithApiKey = useCallback(async (id: IntegrationId, apiKey: string): Promise<string | undefined> => {
+        const adapter = ADAPTERS[id];
+        if (!adapter) throw new Error(`Unknown integration: ${id}`);
+        if (!adapter.supportsApiKey) throw new Error(`API key connection is not supported for ${id}.`);
+
+        setStatus(id, 'connecting');
+        try {
+            const connection = await adapter.connectWithApiKey(apiKey);
+            setStatus(id, 'connected');
+            setAccountNames((prev) => ({ ...prev, [id]: connection.accountName }));
+            return connection.accountName;
+        } catch (err) {
+            setStatus(id, 'error');
+            throw err;
+        }
+    }, [setStatus]);
+
+    /**
+     * One-click direct connection for local-bridge adapters (supportsLocalBridge === true).
+     * Used for Ollama: detects the running local instance automatically.
+     */
+    const connectDirect = useCallback(async (id: IntegrationId): Promise<string | undefined> => {
+        const adapter = ADAPTERS[id];
+        if (!adapter) throw new Error(`Unknown integration: ${id}`);
+        if (!adapter.supportsLocalBridge) throw new Error(`Direct connection is not supported for ${id}.`);
+
+        setStatus(id, 'connecting');
+        try {
+            const connection = await adapter.connectDirect();
+            setStatus(id, 'connected');
+            setAccountNames((prev) => ({ ...prev, [id]: connection.accountName }));
+            return connection.accountName;
+        } catch (err) {
+            setStatus(id, 'error');
+            throw err;
+        }
+    }, [setStatus]);
+
     /** Disconnect and clear the stored token for an integration. */
     const disconnect = useCallback((id: IntegrationId) => {
         ADAPTERS[id]?.clearConnection();
@@ -150,8 +200,12 @@ export function useIntegrations() {
         ...meta,
         status: statuses[meta.id] || 'disconnected',
         accountName: accountNames[meta.id],
-        supportsPAT: ADAPTERS[meta.id]?.supportsPAT ?? false
+        supportsPAT: ADAPTERS[meta.id]?.supportsPAT ?? false,
+        supportsApiKey: ADAPTERS[meta.id]?.supportsApiKey ?? false,
+        supportsLocalBridge: ADAPTERS[meta.id]?.supportsLocalBridge ?? false,
+        isAIAssistant: ADAPTERS[meta.id]?.isAIAssistant ?? false
     }));
 
-    return { integrations, connect, connectWithPAT, disconnect, getStatus };
+    return { integrations, connect, connectWithPAT, connectWithApiKey, connectDirect, disconnect, getStatus };
 }
+

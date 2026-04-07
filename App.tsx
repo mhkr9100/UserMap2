@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { LogOut, Moon, Sun, Plug } from 'lucide-react';
+import { LogOut, Moon, Sun, Plug, Bot } from 'lucide-react';
+import { AIChatPanel } from './components/AIChatPanel';
 import { ContextImportDialog } from './components/ContextImportDialog';
 import { IntegrationsPanel } from './components/IntegrationsPanel';
 import { LoginScreen } from './components/LoginScreen';
@@ -8,6 +9,8 @@ import { BrandMark } from './components/icons/BrandMark';
 import { useAuth } from './hooks/useAuth';
 import { useUserMap } from './hooks/useUserMap';
 import { useIntegrations } from './hooks/useIntegrations';
+import { queryContext } from './services/contextQuery';
+import type { ToolContextItem } from './types';
 
 const App: React.FC = () => {
   const { currentUser, isInitializing, login, logout } = useAuth();
@@ -25,6 +28,8 @@ const App: React.FC = () => {
   const [isMemoryImportOpen, setIsMemoryImportOpen] = useState(false);
   const [isMemoryImporting, setIsMemoryImporting] = useState(false);
   const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false);
+  const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+  const [aiContextItems, setAiContextItems] = useState<ToolContextItem[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) return 'dark';
     return 'light';
@@ -69,6 +74,21 @@ const App: React.FC = () => {
     () => integrations.filter((i) => i.status === 'connected').length,
     [integrations]
   );
+  const connectedAICount = useMemo(
+    () => integrations.filter((i) => i.isAIAssistant && i.status === 'connected').length,
+    [integrations]
+  );
+
+  /** Open the AI chat panel, refreshing context from all connected data-source adapters. */
+  const handleOpenAIChat = useCallback(async () => {
+    setIsAIChatOpen(true);
+    try {
+      const response = await queryContext({ query: '' });
+      setAiContextItems(response.results);
+    } catch {
+      setAiContextItems([]);
+    }
+  }, []);
 
   if (isInitializing) {
     return (
@@ -96,6 +116,20 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* AI Chat button */}
+            <button
+              onClick={handleOpenAIChat}
+              className="h-10 px-3 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.04] text-[10px] font-black uppercase tracking-[0.14em] text-gray-700 dark:text-white/70 flex items-center gap-2"
+              title="AI Chat — context auto-injected from UserMap"
+            >
+              <Bot size={14} className={connectedAICount > 0 ? 'text-violet-500' : ''} />
+              <span className="hidden sm:inline">AI</span>
+              {connectedAICount > 0 && (
+                <span className="h-4 min-w-4 px-1 rounded-full bg-violet-500 text-white text-[9px] font-black flex items-center justify-center">
+                  {connectedAICount}
+                </span>
+              )}
+            </button>
             {/* Connected tools indicator + panel trigger */}
             <button
               onClick={() => setIsIntegrationsPanelOpen(true)}
@@ -148,6 +182,12 @@ const App: React.FC = () => {
       <IntegrationsPanel
         isOpen={isIntegrationsPanelOpen}
         onClose={() => setIsIntegrationsPanelOpen(false)}
+      />
+
+      <AIChatPanel
+        isOpen={isAIChatOpen}
+        onClose={() => setIsAIChatOpen(false)}
+        contextItems={aiContextItems}
       />
     </div>
   );

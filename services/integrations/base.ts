@@ -12,7 +12,7 @@
  * localStorage under the key `usermap_integration_<id>`.
  */
 
-import type { IntegrationId, IntegrationConnection, ToolContextItem } from '../../types';
+import type { IntegrationId, IntegrationConnection, ToolContextItem, ChatMessage, AIChatResponse } from '../../types';
 
 /** How often (ms) to poll localStorage for the OAuth callback result. */
 const POPUP_POLL_INTERVAL_MS = 400;
@@ -29,6 +29,20 @@ export abstract class BaseAdapter {
      * Override and return true in adapters that implement `connectWithPAT`.
      */
     readonly supportsPAT: boolean = false;
+
+    /**
+     * Whether this adapter connects via an API key (AI assistants).
+     * When true the UI shows an "API Key" input instead of an OAuth button.
+     * Adapters that set this to true must implement `connectWithApiKey`.
+     */
+    readonly supportsApiKey: boolean = false;
+
+    /**
+     * Whether this adapter can connect to a local service without any
+     * credentials (e.g. Ollama running on localhost).  When true the UI
+     * shows a "Connect" button that calls `connectDirect()`.
+     */
+    readonly supportsLocalBridge: boolean = false;
 
     /**
      * Build the OAuth authorization URL to open in a popup.
@@ -58,6 +72,43 @@ export abstract class BaseAdapter {
         query: string,
         limit: number
     ): Promise<ToolContextItem[]>;
+
+    /**
+     * Connect to a local service without credentials (e.g. Ollama).
+     * Adapters that set `supportsLocalBridge = true` must implement this.
+     * Returns the connection record on success, or throws on failure.
+     */
+    connectDirect(): Promise<IntegrationConnection> {
+        throw new Error(`${this.id} does not support direct local connection.`);
+    }
+
+    /**
+     * Connect using an API key (AI assistant adapters).
+     * Adapters that set `supportsApiKey = true` must implement this.
+     */
+    connectWithApiKey(_apiKey: string): Promise<IntegrationConnection> {
+        throw new Error(`${this.id} does not support API key connection.`);
+    }
+
+    /**
+     * Send a chat message to the AI and receive a response.
+     * Context items from UserMap are automatically injected as a system
+     * message so the AI always has the user's current knowledge graph.
+     *
+     * Only AI-assistant adapters implement this method.
+     *
+     * @param messages     Conversation history (role + content).
+     * @param contextItems UserMap context items to inject as system context.
+     */
+    sendMessage(_messages: ChatMessage[], _contextItems: ToolContextItem[]): Promise<AIChatResponse> {
+        throw new Error(`${this.id} does not support AI chat.`);
+    }
+
+    /**
+     * Whether this adapter is an AI assistant (supports sendMessage).
+     * UI uses this to show the adapter in the "AI Assistants" section.
+     */
+    readonly isAIAssistant: boolean = false;
 
     // -------------------------------------------------------------------------
     // Shared helpers (available to all adapters)
