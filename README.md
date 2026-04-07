@@ -4,17 +4,27 @@
 
 Standalone workspace for capturing, organizing, and exporting reusable context — with one-click tool integrations and AI assistant chat that keeps all data strictly local.
 
+**No account required. No sign-up. No login.** Just install, run, and connect your tools.
+
 ---
 
 ## What's Included
 
 | Phase | Status | Features |
 |---|---|---|
-| **Phase 1** | ✅ Complete | Auth, UserMap tree, memory, context import/export, server-side consolidation, Slack OAuth |
+| **Phase 1** | ✅ Complete | UserMap tree, memory, context import/export, local consolidation, Slack OAuth |
 | **Phase 2** | ✅ Complete | GitHub and Gmail OAuth connections; unified local context query across all tools |
 | **Phase 3** | ✅ Complete | Flowchart, timeline, and full-text search views; advanced filter/highlight UI |
 | **Phase 4** | ✅ Complete | ChatGPT, Claude, Gemini cloud AI chat; Ollama local LLM bridge (one-click, offline); AI Chat panel with auto context injection |
 | **Phase 5** | 🔜 Planned | Background sync agent, plugin marketplace, semantic vector search |
+
+---
+
+## No Authentication
+
+UserMap has **no user accounts, no sign-up, no login, and no centralized identity**. When you open the app you go straight to your workspace. All data is stored locally in your browser's `localStorage`.
+
+OAuth flows exist **only** for connecting third-party tools (Slack, GitHub, Gmail). These OAuth popups authenticate you with *those services* — not with UserMap itself.
 
 ---
 
@@ -32,7 +42,7 @@ npm install          # installs workspace deps for server + desktop
 
 ```bash
 cp .env.example .env
-# Edit .env with your credentials (see sections below)
+# Edit .env with your tool credentials (see sections below)
 cp apps/server/.env.example apps/server/.env
 # Edit apps/server/.env with your Slack app credentials
 ```
@@ -120,19 +130,11 @@ export class MyAIAdapter extends BaseAdapter {
 
 ---
 
-## Required Environment Variables
+## Environment Variables
 
-### Phase 1 (Core)
+All variables are optional. The app runs without any of them.
 
-| Variable | Description |
-|---|---|
-| `VITE_AUTH_POOL_ID` | AWS Cognito User Pool ID |
-| `VITE_AUTH_CLIENT_ID` | AWS Cognito App Client ID |
-| `VITE_API_BASE_URL` | Base URL of the UserMap backend API |
-| `PORT` | Local API server port (default: 5185) |
-| `APP_URL` | Local server base URL |
-
-### Phase 2 (Tool Integrations)
+### Tool Integrations (Phase 2)
 
 | Variable | Tool | Where to get it |
 |---|---|---|
@@ -143,7 +145,7 @@ export class MyAIAdapter extends BaseAdapter {
 | `VITE_GOOGLE_CLIENT_ID` | Gmail | [console.cloud.google.com](https://console.cloud.google.com/apis/credentials) |
 | `VITE_GOOGLE_CLIENT_SECRET` | Gmail | [console.cloud.google.com](https://console.cloud.google.com/apis/credentials) |
 
-### Phase 4 (AI Integrations)
+### AI Integrations (Phase 4)
 
 AI API keys are entered through the UI and stored in `localStorage` — no environment variables needed for ChatGPT, Claude, or Gemini.
 
@@ -275,8 +277,5 @@ const result = await queryContext({
 
 ## Data Storage
 
-UserMap stores everything in `~/.usermap/usermap.db` (SQLite).  
-No data ever leaves your machine.
-
-To change the storage path set `USERMAP_DATA_DIR` in `apps/server/.env`.
+UserMap stores your context map in your browser's `localStorage` under the key `usermap_tree_v1`. No data ever leaves your machine unless you explicitly connect a tool.
 

@@ -1,5 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { PageNode, UserProfile } from '../types';
+import { useState, useCallback, useRef } from 'react';
+import { PageNode } from '../types';
+
+const TREE_STORAGE_KEY = 'usermap_tree_v1';
+const MEMORIES_STORAGE_KEY = 'usermap_memories_v1';
 
 const EMPTY_TREE: PageNode = {
     id: 'root',
@@ -33,86 +36,56 @@ function normalizeTree(node: PageNode, depth = 0): PageNode {
     };
 }
 
-export const useUserMap = (currentUser: UserProfile | null) => {
-    const [userMapTree, setUserMapTree] = useState<PageNode>(EMPTY_TREE);
-    const [isLoading, setIsLoading] = useState(false);
+function loadTreeFromStorage(): PageNode {
+    try {
+        const raw = localStorage.getItem(TREE_STORAGE_KEY);
+        if (!raw) return EMPTY_TREE;
+        const parsed = JSON.parse(raw) as PageNode;
+        if (parsed?.id === 'root') return normalizeTree(parsed);
+    } catch {
+        // ignore parse errors
+    }
+    return EMPTY_TREE;
+}
+
+function saveTreeToStorage(tree: PageNode): void {
+    try {
+        localStorage.setItem(TREE_STORAGE_KEY, JSON.stringify(tree));
+    } catch (err) {
+        console.error('[useUserMap] Failed to save tree to localStorage:', err);
+    }
+}
+
+function loadMemoriesFromStorage(): string[] {
+    try {
+        const raw = localStorage.getItem(MEMORIES_STORAGE_KEY);
+        if (!raw) return [];
+        return JSON.parse(raw) as string[];
+    } catch {
+        return [];
+    }
+}
+
+function saveMemoriesToStorage(memories: string[]): void {
+    try {
+        localStorage.setItem(MEMORIES_STORAGE_KEY, JSON.stringify(memories));
+    } catch (err) {
+        console.error('[useUserMap] Failed to save memories to localStorage:', err);
+    }
+}
+
+export const useUserMap = () => {
+    const [userMapTree, setUserMapTree] = useState<PageNode>(() => loadTreeFromStorage());
     const [isConsolidating, setIsConsolidating] = useState(false);
-    const [serverUpdatedAt, setServerUpdatedAt] = useState<string | null>(null);
 
-    const latestTreeRef = useRef<PageNode>(EMPTY_TREE);
-    const latestUpdatedAtRef = useRef<string | null>(null);
+    const latestTreeRef = useRef<PageNode>(userMapTree);
 
-    useEffect(() => {
-        if (!currentUser) return;
-
-        let mounted = true;
-        (async () => {
-            setIsLoading(true);
-            try {
-                const { getUserMapTree } = await import('../services/workspaceApi');
-                const remote = await getUserMapTree();
-                const tree = remote?.tree && remote.tree.id === 'root' ? normalizeTree(remote.tree) : EMPTY_TREE;
-                const updatedAt = remote?.updatedAt || null;
-
-                if (!mounted) return;
-                setUserMapTree(tree);
-                latestTreeRef.current = tree;
-                setServerUpdatedAt(updatedAt);
-                latestUpdatedAtRef.current = updatedAt;
-            } catch (error) {
-                console.warn('[useUserMap] Remote load failed, resetting to empty tree:', error);
-                if (!mounted) return;
-                setUserMapTree(EMPTY_TREE);
-                latestTreeRef.current = EMPTY_TREE;
-                setServerUpdatedAt(null);
-                latestUpdatedAtRef.current = null;
-            } finally {
-                if (mounted) setIsLoading(false);
-            }
-        })();
-
-        return () => {
-            mounted = false;
-        };
-    }, [currentUser]);
-
-    const saveTree = useCallback(async (tree: PageNode) => {
-        if (!currentUser) return;
-
-        const previousTree = latestTreeRef.current;
-        const previousUpdatedAt = latestUpdatedAtRef.current;
-        const normalizedTree = normalizeTree(tree);
-
-        setUserMapTree(normalizedTree);
-        latestTreeRef.current = normalizedTree;
-
-        try {
-            const { saveUserMapTree } = await import('../services/workspaceApi');
-            const response = await saveUserMapTree(normalizedTree, previousUpdatedAt);
-            const nextUpdatedAt = response.updatedAt || new Date().toISOString();
-
-            setServerUpdatedAt(nextUpdatedAt);
-            latestUpdatedAtRef.current = nextUpdatedAt;
-        } catch (error: any) {
-            if (error?.code === 'CONFLICT' && error.currentTree?.id === 'root') {
-                const remoteTree = error.currentTree as PageNode;
-                const remoteUpdatedAt = error.currentUpdatedAt || null;
-                const normalizedRemoteTree = normalizeTree(remoteTree);
-                setUserMapTree(normalizedRemoteTree);
-                latestTreeRef.current = normalizedRemoteTree;
-                setServerUpdatedAt(remoteUpdatedAt);
-                latestUpdatedAtRef.current = remoteUpdatedAt;
-                return;
-            }
-
-            console.error('[useUserMap] Failed to save tree, rolling back:', error);
-            setUserMapTree(previousTree);
-            latestTreeRef.current = previousTree;
-            setServerUpdatedAt(previousUpdatedAt);
-            latestUpdatedAtRef.current = previousUpdatedAt;
-            throw error;
-        }
-    }, [currentUser]);
+    const saveTree = useCallback((tree: PageNode) => {
+        const normalized = normalizeTree(tree);
+        setUserMapTree(normalized);
+        latestTreeRef.current = normalized;
+        saveTreeToStorage(normalized);
+    }, []);
 
     const updateNode = useCallback((nodeId: string, updates: Partial<PageNode>) => {
         const updateInTree = (node: PageNode): PageNode => {
@@ -122,8 +95,7 @@ export const useUserMap = (currentUser: UserProfile | null) => {
             return { ...node, children: node.children.map(updateInTree) };
         };
 
-        const updated = updateInTree(latestTreeRef.current);
-        void saveTree(updated);
+        saveTree(updateInTree(latestTreeRef.current));
     }, [saveTree]);
 
     const deleteNode = useCallback((nodeId: string) => {
@@ -134,8 +106,7 @@ export const useUserMap = (currentUser: UserProfile | null) => {
                 .map(removeFromTree)
         });
 
-        const updated = removeFromTree(latestTreeRef.current);
-        void saveTree(updated);
+        saveTree(removeFromTree(latestTreeRef.current));
     }, [saveTree]);
 
     const addNode = useCallback((parentId: string, newNode: PageNode) => {
@@ -146,114 +117,29 @@ export const useUserMap = (currentUser: UserProfile | null) => {
             return { ...node, children: node.children.map(addToTree) };
         };
 
-        const updated = addToTree(latestTreeRef.current);
-        void saveTree(updated);
+        saveTree(addToTree(latestTreeRef.current));
     }, [saveTree]);
 
     const consolidate = useCallback(async () => {
-        if (!currentUser) {
-            throw new Error('Not logged in.');
+        const memories = loadMemoriesFromStorage();
+        if (memories.length === 0) {
+            throw new Error('No saved context is available yet. Add or import context first.');
         }
 
         setIsConsolidating(true);
         try {
-            const { listMemories, consolidateUserMap } = await import('../services/workspaceApi');
-            const memoriesResponse = await listMemories(500);
-            const memoryStrings = (memoriesResponse.memories || [])
-                .map((memory) => (memory.content || '').trim())
-                .filter(Boolean);
-
-            if (memoryStrings.length === 0) {
-                throw new Error('No saved context is available yet. Add or import context first.');
-            }
-
+            const { consolidateUserMap } = await import('../services/workspaceApi');
             const tree = await consolidateUserMap({
-                memories: memoryStrings,
+                memories,
                 existingTree: latestTreeRef.current.children.length > 0 ? latestTreeRef.current : undefined
             });
-
-            await saveTree(tree);
+            saveTree(tree);
         } finally {
             setIsConsolidating(false);
         }
-    }, [currentUser, saveTree]);
+    }, [saveTree]);
 
-    const persistFacts = useCallback(async (
-        facts: string[],
-        agentId?: string,
-        source: string = 'chat',
-        requireCloudAck: boolean = false
-    ) => {
-        if (!currentUser || facts.length === 0) return 0;
-
-        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
-        const failures: string[] = [];
-
-        if (!apiBaseUrl) {
-            throw new Error('The API base URL is not configured.');
-        }
-
-        let storedCount = 0;
-        const token = sessionStorage.getItem('id_token')
-            || sessionStorage.getItem('auth_token');
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (token) {
-            headers.Authorization = `Bearer ${token}`;
-        }
-
-        for (const fact of facts) {
-            const cleaned = (fact || '').trim();
-            if (!cleaned) continue;
-
-            try {
-                const response = await fetch(`${apiBaseUrl}/api/memory/add`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        agentId,
-                        content: cleaned,
-                        category: source === 'external-import' ? 'profile' : 'general'
-                    })
-                });
-
-                if (!response.ok) {
-                    const body = await response.text();
-                    failures.push(`memory/add failed (${response.status}): ${body || 'no response body'}`);
-                    continue;
-                }
-
-                storedCount += 1;
-            } catch (error: any) {
-                failures.push(`memory/add network error: ${error?.message || 'unknown error'}`);
-            }
-        }
-
-        if (failures.length > 0) {
-            if (requireCloudAck) {
-                throw new Error(failures[0]);
-            }
-            console.error('[Memory Sync Error]', failures[0]);
-        }
-
-        return storedCount;
-    }, [currentUser]);
-
-    const ingestSession = useCallback(async (messages: Array<{ role: string; content: string }>, agentId?: string) => {
-        if (!currentUser || messages.length < 2) return;
-
-        try {
-            const { extractMemory } = await import('../services/workspaceApi');
-            const response = await extractMemory({ messages });
-            const facts: string[] = response.facts || [];
-            await persistFacts(facts, agentId, 'chat', false);
-        } catch (error) {
-            console.error('Memory ingestion failed:', error);
-        }
-    }, [currentUser, persistFacts]);
-
-    const ingestExternalMemory = useCallback(async (rawText: string) => {
-        if (!currentUser) return 0;
-
+    const ingestExternalMemory = useCallback(async (rawText: string): Promise<number> => {
         const codeBlockMatch = rawText.match(/```[\w-]*\s*([\s\S]*?)```/);
         const body = (codeBlockMatch ? codeBlockMatch[1] : rawText)
             .replace(/\r/g, '\n')
@@ -271,15 +157,37 @@ export const useUserMap = (currentUser: UserProfile | null) => {
             .filter((line) => line.length >= 8)
             .slice(0, 200);
 
-        return persistFacts(normalized, undefined, 'external-import', true);
-    }, [currentUser, persistFacts]);
+        if (normalized.length === 0) return 0;
+
+        const existing = loadMemoriesFromStorage();
+        const merged = Array.from(new Set([...existing, ...normalized]));
+        saveMemoriesToStorage(merged);
+        return normalized.length;
+    }, []);
+
+    const ingestSession = useCallback(async (messages: Array<{ role: string; content: string }>, _agentId?: string) => {
+        if (messages.length < 2) return;
+
+        try {
+            const { extractMemory } = await import('../services/workspaceApi');
+            const response = await extractMemory({ messages });
+            const facts: string[] = response.facts || [];
+            if (facts.length === 0) return;
+
+            const existing = loadMemoriesFromStorage();
+            const merged = Array.from(new Set([...existing, ...facts]));
+            saveMemoriesToStorage(merged);
+        } catch (error) {
+            console.error('Memory ingestion failed:', error);
+        }
+    }, []);
 
     return {
         userMapTree,
         setUserMapTree: saveTree,
-        isLoading,
+        isLoading: false,
         isConsolidating,
-        serverUpdatedAt,
+        serverUpdatedAt: null,
         updateNode,
         deleteNode,
         addNode,

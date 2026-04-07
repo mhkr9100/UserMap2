@@ -1,19 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { LogOut, Moon, Sun, Plug, Bot } from 'lucide-react';
+import { Moon, Sun, Plug, Bot } from 'lucide-react';
 import { AIChatPanel } from './components/AIChatPanel';
 import { ContextImportDialog } from './components/ContextImportDialog';
 import { IntegrationsPanel } from './components/IntegrationsPanel';
-import { LoginScreen } from './components/LoginScreen';
 import { UserMapView } from './components/UserMapView';
 import { BrandMark } from './components/icons/BrandMark';
-import { useAuth } from './hooks/useAuth';
 import { useUserMap } from './hooks/useUserMap';
 import { useIntegrations } from './hooks/useIntegrations';
 import { queryContext } from './services/contextQuery';
 import type { ToolContextItem } from './types';
 
 const App: React.FC = () => {
-  const { currentUser, isInitializing, login, logout } = useAuth();
   const {
     userMapTree,
     updateNode,
@@ -22,7 +19,7 @@ const App: React.FC = () => {
     consolidate,
     isConsolidating,
     ingestExternalMemory
-  } = useUserMap(currentUser);
+  } = useUserMap();
   const { integrations } = useIntegrations();
 
   const [isMemoryImportOpen, setIsMemoryImportOpen] = useState(false);
@@ -36,10 +33,9 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    if (!currentUser) return;
     const importHandled = localStorage.getItem('usermap_seen_memory_import_prompt') === 'true';
     if (!importHandled) setIsMemoryImportOpen(true);
-  }, [currentUser]);
+  }, []);
 
   const handleSkipMemoryImport = useCallback(() => {
     localStorage.setItem('usermap_seen_memory_import_prompt', 'true');
@@ -69,7 +65,6 @@ const App: React.FC = () => {
     localStorage.setItem('theme', nextTheme);
   }, [theme]);
 
-  const userLabel = useMemo(() => currentUser?.name || currentUser?.email || 'Architect', [currentUser]);
   const connectedCount = useMemo(
     () => integrations.filter((i) => i.status === 'connected').length,
     [integrations]
@@ -90,20 +85,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  if (isInitializing) {
-    return (
-      <div className="h-screen w-screen bg-[#F8F9FA] dark:bg-[#1A1A1A] flex items-center justify-center transition-colors duration-300">
-        <div className="text-gray-900 dark:text-white font-bold animate-pulse uppercase tracking-[0.5em] text-xs">
-          Initializing UserMap...
-        </div>
-      </div>
-    );
-  }
-
-  if (!currentUser) {
-    return <LoginScreen onLogin={login} onRegister={login} />;
-  }
-
   return (
     <div className="h-screen bg-[#F8F9FA] text-[#1A1A1A] dark:bg-[#1A1A1A] dark:text-[#FFFFFF] transition-colors duration-300 overflow-hidden">
       <div className="h-full flex flex-col">
@@ -112,7 +93,7 @@ const App: React.FC = () => {
             <BrandMark size={28} className="text-gray-900 dark:text-white" />
             <div className="min-w-0">
               <div className="text-[10px] font-black uppercase tracking-[0.26em] text-gray-900 dark:text-white">UserMap</div>
-              <div className="text-[10px] text-gray-500 dark:text-white/40 truncate">{userLabel}</div>
+              <div className="text-[10px] text-gray-500 dark:text-white/40 truncate">Local · No account needed</div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -150,13 +131,6 @@ const App: React.FC = () => {
               title="Toggle theme"
             >
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-            <button
-              onClick={() => logout()}
-              className="h-10 px-4 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.04] text-[10px] font-black uppercase tracking-[0.18em] text-gray-700 dark:text-white/70 flex items-center gap-2"
-            >
-              <LogOut size={14} />
-              Logout
             </button>
           </div>
         </header>
