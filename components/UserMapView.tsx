@@ -1,8 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PageNode, UserMapImportance } from '../types';
+import { FlowChartView } from './FlowChartView';
+import { TimelineView } from './TimelineView';
+import { ContextSearchView } from './ContextSearchView';
 
-type ViewMode = 'tree' | 'storyboard';
+type ViewMode = 'tree' | 'storyboard' | 'flowchart' | 'timeline' | 'search';
 type ExportFormat = 'prompt' | 'json';
 type ContextMode = 'all' | 'high-signal' | 'collaboration' | 'execution' | 'technical';
 
@@ -568,7 +571,7 @@ export const UserMapView: React.FC<UserMapViewProps> = ({
                             <div>
                                 <div className="text-[9px] font-black uppercase tracking-[0.24em] text-gray-500 dark:text-white/35 mb-2">View</div>
                                 <div className="flex flex-wrap gap-2">
-                                    {(['tree', 'storyboard'] as ViewMode[]).map((mode) => (
+                                    {(['tree', 'storyboard', 'flowchart', 'timeline', 'search'] as ViewMode[]).map((mode) => (
                                         <button
                                             key={mode}
                                             onClick={() => setViewMode(mode)}
@@ -613,6 +616,12 @@ export const UserMapView: React.FC<UserMapViewProps> = ({
                                 </div>
                             ) : viewMode === 'tree' ? (
                                 <TreeNode node={filteredTree} depth={0} onUpdate={onUpdateNode} onDelete={onDeleteNode} onAdd={onAddNode} />
+                            ) : viewMode === 'flowchart' ? (
+                                <FlowChartView tree={filteredTree} />
+                            ) : viewMode === 'timeline' ? (
+                                <TimelineView tree={filteredTree} />
+                            ) : viewMode === 'search' ? (
+                                <ContextSearchView tree={filteredTree} />
                             ) : (
                                 <div className="space-y-8 min-w-max pb-4">
                                     <div className="flex justify-center">
