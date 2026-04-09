@@ -21,7 +21,7 @@
  */
 
 import type { IntegrationId, ContextQueryResponse, ToolContextItem } from '../types';
-import { ADAPTERS } from './integrations';
+import { ADAPTERS, BaseAdapter } from './integrations';
 
 export interface ContextQueryOptions {
     /** Free-text search passed to each adapter. */
@@ -44,17 +44,20 @@ const MAX_RESULTS = 50;
  * Results from different sources are interleaved chronologically so the caller
  * gets the most recent, most relevant context regardless of origin.
  */
-export async function queryContext(options: ContextQueryOptions): Promise<ContextQueryResponse> {
+export async function queryContext(
+    options: ContextQueryOptions,
+    adapters: Record<IntegrationId, BaseAdapter> = ADAPTERS
+): Promise<ContextQueryResponse> {
     const { query, sources, limit = 10 } = options;
 
     // Determine which adapters to query — skip AI assistants (they return []).
-    const allIds = Object.keys(ADAPTERS) as IntegrationId[];
+    const allIds = Object.keys(adapters) as IntegrationId[];
     const adapterIds: IntegrationId[] = sources
-        || allIds.filter((id) => !ADAPTERS[id]?.isAIAssistant);
+        || allIds.filter((id) => !adapters[id]?.isAIAssistant);
 
     // Fire all adapter fetches concurrently.
     const fetchPromises = adapterIds.map(async (id): Promise<ToolContextItem[]> => {
-        const adapter = ADAPTERS[id];
+        const adapter = adapters[id];
         if (!adapter) return [];
 
         const connection = adapter.loadConnection();
