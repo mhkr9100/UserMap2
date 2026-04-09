@@ -10,9 +10,10 @@ interface CustomApi {
   direction: 'pull' | 'push';
   url: string;
   method?: string;
-  headers?: Record<string, string>;
+  /** Stored as JSON string in SQLite; deserialized on read */
+  headers?: Record<string, string> | string;
   body_template?: string;
-  enabled?: boolean;
+  enabled?: boolean | number;
   created_at?: string;
   updated_at?: string;
 }
@@ -26,7 +27,7 @@ router.get('/', (_req: Request, res: Response) => {
   res.json({
     apis: rows.map((r) => ({
       ...r,
-      headers: safeJsonParse(r.headers as unknown as string, {}),
+      headers: safeJsonParse(r.headers as string, {}),
       enabled: Boolean(r.enabled),
     })),
   });
@@ -92,7 +93,7 @@ router.patch('/:id', (req: Request, res: Response) => {
   );
 
   const updated = db.prepare('SELECT * FROM custom_apis WHERE id = ?').get(req.params.id) as CustomApi;
-  res.json({ ...updated, headers: safeJsonParse(updated.headers as unknown as string, {}), enabled: Boolean(updated.enabled) });
+  res.json({ ...updated, headers: safeJsonParse(updated.headers as string, {}), enabled: Boolean(updated.enabled) });
 });
 
 /**

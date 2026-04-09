@@ -120,6 +120,11 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'No file uploaded. Attach a file with field name "file".' });
   }
 
+  // Sanitize originalname: take only the basename to prevent any path traversal.
+  // file.path is always a multer-controlled temp path (safe); we only use
+  // originalname for display, extension detection, and DB storage — never for file I/O.
+  const safeOriginalName = path.basename(file.originalname);
+
   const notes: string = (req.body as { notes?: string }).notes?.trim() ?? '';
   const db = getDb();
 
@@ -127,7 +132,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
   const jobResult = db.prepare(`
     INSERT INTO import_jobs (filename, mimetype, size_bytes, notes, status)
     VALUES (?, ?, ?, ?, 'received')
-  `).run(file.originalname, file.mimetype, file.size, notes);
+  `).run(safeOriginalName, file.mimetype, file.size, notes);
 
   const jobId = jobResult.lastInsertRowid as number;
 
@@ -136,24 +141,26 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     source_tool: 'import',
     actor: 'user',
     object_ref: `job:${jobId}`,
-    summary: `Import received: ${file.originalname} (${Math.round(file.size / 1024)}KB)`,
+    summary: `Import received: ${safeOriginalName} (${Math.round(file.size / 1024)}KB)`,
   });
 
   let extractedText = '';
   try {
     // 2. Parse file content
     db.prepare(`UPDATE import_jobs SET status='parsing', updated_at=datetime('now') WHERE id=?`).run(jobId);
-    extractedText = await extractText(file.path, file.originalname, file.mimetype);
+    extractedText = await extractText(file.path, safeOriginalName, file.mimetype);
 
     appendLog({
       event_type: 'import.parsed',
       source_tool: 'import',
       actor: 'system',
       object_ref: `job:${jobId}`,
-      summary: `Parsed ${file.originalname}: ${extractedText.length} chars extracted`,
+      summary: `Parsed ${safeOriginalName}: ${extractedText.length} chars extracted`,
     });
 
-    // 3. Prism classify: prepend notes as context hint if provided
+    // 3. Prism classify: prepend notes as context hint if provided.
+    // The structured '[Import Context Hints]' prefix signals to Prism that this
+    // section contains user-supplied guidance for classification and retrieval.
     db.prepare(`UPDATE import_jobs SET status='classifying', updated_at=datetime('now') WHERE id=?`).run(jobId);
 
     const contentToStore = notes
@@ -165,7 +172,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       source_tool: 'import',
       actor: 'system',
       object_ref: `job:${jobId}`,
-      summary: `Classifying import: ${file.originalname}`,
+      summary: `Classifying import: ${safeOriginalName}`,
     });
 
     appendLog({
@@ -181,9 +188,9 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       INSERT OR REPLACE INTO documents (tool, doc_id, content, metadata)
       VALUES ('import', ?, ?, ?)
     `).run(
-      `job-${jobId}-${file.originalname}`,
+      `job-${jobId}-${safeOriginalName}`,
       contentToStore,
-      JSON.stringify({ filename: file.originalname, mimetype: file.mimetype, size: file.size, notes, job_id: jobId }),
+      JSON.stringify({ filename: safeOriginalName, mimetype: file.mimetype, size: file.size, notes, job_id: jobId }),
     );
 
     const documentId = docResult.lastInsertRowid as number;
@@ -206,12 +213,12 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       source_tool: 'import',
       actor: 'system',
       object_ref: `doc:${documentId}`,
-      summary: `Import indexed for retrieval: ${file.originalname}`,
+      summary: `Import indexed for retrieval: ${safeOriginalName}`,
     });
 
     return res.status(201).json({
       job_id: jobId,
-      filename: file.originalname,
+      filename: safeOriginalName,
       status: 'indexed',
       document_id: documentId,
       notes,
@@ -228,7 +235,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       source_tool: 'import',
       actor: 'system',
       object_ref: `job:${jobId}`,
-      summary: `Import failed for ${file.originalname}: ${msg}`,
+      summary: `Import failed for ${safeOriginalName}: ${msg}`,
       severity: 'error',
     });
 

@@ -7,7 +7,7 @@ const CATEGORY_FOLDERS = ['All', 'Documents', 'Spreadsheets', 'PDFs', 'Text & Ma
 function getCategory(job: ImportJob): string {
   const ext = job.filename.split('.').pop()?.toLowerCase() ?? '';
   if (['pdf'].includes(ext)) return 'PDFs';
-  if (['xlsx', 'xls', 'csv'].includes(ext)) return 'Spreadsheets';
+  if (['xlsx', 'xls'].includes(ext)) return 'Spreadsheets';
   if (['txt', 'md'].includes(ext)) return 'Text & Markdown';
   if (['json', 'csv'].includes(ext)) return 'Data (JSON/CSV)';
   return 'Documents';

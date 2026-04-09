@@ -454,7 +454,7 @@ interface ConnectorsPageProps {
   onOpenAISetup?: () => void;
 }
 
-export const ConnectorsPage: React.FC<ConnectorsPageProps> = ({ onOpenAISetup: _onOpenAISetup }) => {
+export const ConnectorsPage: React.FC<ConnectorsPageProps> = () => {
   const [connectors, setConnectors] = useState<ConnectorConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [configuringConnector, setConfiguringConnector] = useState<ConnectorConfig | null>(null);

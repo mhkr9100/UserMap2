@@ -33,7 +33,6 @@ beforeAll(() => {
 
 beforeEach(() => {
   // Re-initialize DB for each test (fresh state)
-  const { getDb } = require('./apps/server/src/db/index.ts') as { getDb: () => Database.Database };
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const mod = require('./apps/server/src/db/index.ts') as { getDb: () => Database.Database };
   db = mod.getDb();
