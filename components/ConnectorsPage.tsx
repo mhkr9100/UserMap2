@@ -439,7 +439,7 @@ const CustomApisSection: React.FC = () => {
                 <div className="text-[12px] font-semibold text-gray-800 dark:text-white">{api.name}</div>
                 <div className="text-[10px] text-gray-400 dark:text-white/30">{api.method} {api.url} · {api.direction}</div>
               </div>
-              <button onClick={() => handleDelete(api.id!)} className="text-red-400 hover:text-red-600 transition-colors">
+              <button onClick={() => api.id != null && handleDelete(api.id)} className="text-red-400 hover:text-red-600 transition-colors" disabled={api.id == null}>
                 <Trash2 size={13} />
               </button>
             </div>

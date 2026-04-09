@@ -124,7 +124,10 @@ export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
                   .join('\n---\n');
               }
             }
-          } catch { /* server unreachable — fall through to local */ }
+          } catch (searchErr: unknown) {
+            // Server unreachable or context API error — fall through to local search only
+            console.warn('[Prism] Backend context search failed:', searchErr instanceof Error ? searchErr.message : String(searchErr));
+          }
 
           // 2. Also search local in-memory map for nodes not yet on backend
           const localHits = naiveSearchMap(tree, query);

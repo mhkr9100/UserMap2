@@ -120,10 +120,23 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'No file uploaded. Attach a file with field name "file".' });
   }
 
-  // Sanitize originalname: take only the basename to prevent any path traversal.
-  // file.path is always a multer-controlled temp path (safe); we only use
-  // originalname for display, extension detection, and DB storage — never for file I/O.
-  const safeOriginalName = path.basename(file.originalname);
+  // Validate that the multer-assigned temp path is within the expected upload directory.
+  // Although file.path is set by multer (not user-supplied), this guard ensures
+  // the resolved path cannot escape the upload temp dir via any manipulation.
+  const resolvedFilePath = path.resolve(file.path);
+  const resolvedUploadDir = path.resolve(UPLOAD_TMP);
+  if (!resolvedFilePath.startsWith(resolvedUploadDir + path.sep)) {
+    try { fs.unlinkSync(file.path); } catch { /* ignore */ }
+    return res.status(400).json({ error: 'Invalid file path.' });
+  }
+
+  // Sanitize originalname: take only the basename, then strip any characters that
+  // are not alphanumeric, hyphen, underscore, period, or space.
+  // We only use safeOriginalName for display, extension detection, and DB storage —
+  // never for file I/O.
+  const safeOriginalName = path.basename(file.originalname)
+    .replace(/[^a-zA-Z0-9_\-. ]/g, '_')
+    .slice(0, 255);
 
   const notes: string = (req.body as { notes?: string }).notes?.trim() ?? '';
   const db = getDb();
