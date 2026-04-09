@@ -131,26 +131,33 @@ export class SlackAdapter extends BaseAdapter {
         const queryLower = query.toLowerCase();
 
         // 2. Fetch recent messages from each channel.
-        for (const channel of channelData.channels.slice(0, 5)) {
+        const fetchPromises = channelData.channels.slice(0, 5).map(async (channel) => {
             const histRes = await fetch(
                 `https://slack.com/api/conversations.history?channel=${encodeURIComponent(channel.id)}&limit=20`,
                 { headers: { Authorization: `Bearer ${connection.accessToken}` } }
             );
-            if (!histRes.ok) continue;
+            if (!histRes.ok) return null;
 
             const histData: SlackHistoryResponse = await histRes.json();
-            if (!histData.ok || !histData.messages) continue;
+            if (!histData.ok || !histData.messages) return null;
 
-            for (const msg of histData.messages) {
+            return { channel, messages: histData.messages };
+        });
+
+        const historyResults = await Promise.all(fetchPromises);
+
+        for (const result of historyResults) {
+            if (!result) continue;
+            for (const msg of result.messages) {
                 if (!msg.text || msg.type !== 'message') continue;
                 if (query && !msg.text.toLowerCase().includes(queryLower)) continue;
 
                 items.push({
                     source: 'slack',
-                    title: `#${channel.name}`,
+                    title: `#${result.channel.name}`,
                     text: msg.text,
                     date: msg.ts ? new Date(Number(msg.ts) * 1000).toISOString() : undefined,
-                    meta: { channel: channel.name, user: msg.user || '' }
+                    meta: { channel: result.channel.name, user: msg.user || '' }
                 });
 
                 if (items.length >= limit) return items;
