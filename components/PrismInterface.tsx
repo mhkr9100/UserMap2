@@ -145,7 +145,29 @@ export const PrismInterface: React.FC<PrismInterfaceProps> = ({ isOpen, onClose,
                         children: []
                     });
                     return true;
-                }
+                },
+                onCheckSystemStatus: async () => {
+                    try {
+                        const res = await fetch('/api/status');
+                        if (!res.ok) return `Status check failed: HTTP ${res.status}`;
+                        const data = await res.json();
+                        return `Server: ${data.status || 'ok'}`;
+                    } catch (err: unknown) {
+                        return `Status check error: ${err instanceof Error ? err.message : String(err)}`;
+                    }
+                },
+                onReadLogs: async (limit = 10) => {
+                    try {
+                        const res = await fetch(`/api/logs?limit=${limit}`);
+                        if (!res.ok) return `Logs unavailable: HTTP ${res.status}`;
+                        const data = await res.json();
+                        const logs = (data.logs ?? []) as Array<{ event_type: string; summary?: string; created_at: string }>;
+                        if (logs.length === 0) return 'No log records found.';
+                        return logs.map((l) => `[${l.created_at}] ${l.event_type}: ${l.summary || ''}`.trim()).join('\n');
+                    } catch (err: unknown) {
+                        return `Logs read error: ${err instanceof Error ? err.message : String(err)}`;
+                    }
+                },
             });
 
             // Parse final display messages

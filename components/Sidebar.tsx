@@ -1,13 +1,13 @@
-import React from 'react';
-import { LayoutDashboard, Search, Network, Plug, Bot, ScrollText, BookOpen, Sun, Moon } from 'lucide-react';
+import React, { useState } from 'react';
+import { LayoutDashboard, Network, Plug, Bot, ScrollText, BookOpen, Sun, Moon, ChevronDown, Search } from 'lucide-react';
 import { BrandMark } from './icons/BrandMark';
 
 export type SidebarPage =
   | 'dashboard'
-  | 'context-search'
-  | 'data-studio'
-  | 'connectors'
   | 'prism-agent'
+  | 'data-studio'
+  | 'data-studio-context'
+  | 'connectors'
   | 'logs'
   | 'docs';
 
@@ -18,17 +18,20 @@ interface SidebarProps {
   onToggleTheme: () => void;
 }
 
-const NAV_ITEMS: Array<{ id: SidebarPage; label: string; icon: React.ReactNode }> = [
-  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
-  { id: 'context-search', label: 'Context Search', icon: <Search size={16} /> },
-  { id: 'data-studio', label: 'Data Studio', icon: <Network size={16} /> },
-  { id: 'connectors', label: 'Connectors', icon: <Plug size={16} /> },
-  { id: 'prism-agent', label: 'Prism Agent', icon: <Bot size={16} /> },
-  { id: 'logs', label: 'Logs', icon: <ScrollText size={16} /> },
-  { id: 'docs', label: 'Docs', icon: <BookOpen size={16} /> },
-];
-
 export const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate, theme, onToggleTheme }) => {
+  const isDataStudio = activePage === 'data-studio' || activePage === 'data-studio-context';
+  const [dataStudioOpen, setDataStudioOpen] = useState(isDataStudio);
+
+  const navItemClass = (active: boolean) =>
+    `w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all text-[12px] font-medium ${
+      active
+        ? 'bg-violet-500/10 text-violet-700 dark:text-violet-300 font-semibold'
+        : 'text-gray-600 dark:text-white/50 hover:bg-black/5 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white/80'
+    }`;
+
+  const navIconClass = (active: boolean) =>
+    active ? 'text-violet-500' : 'text-gray-400 dark:text-white/25';
+
   return (
     <aside className="w-56 shrink-0 h-full flex flex-col border-r border-black/5 dark:border-white/5 bg-white/70 dark:bg-black/30 backdrop-blur-xl">
       {/* Brand */}
@@ -42,25 +45,79 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate, theme,
 
       {/* Navigation */}
       <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
-        {NAV_ITEMS.map(({ id, label, icon }) => {
-          const isActive = activePage === id;
-          return (
-            <button
-              key={id}
-              onClick={() => onNavigate(id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all text-[12px] font-medium ${
-                isActive
-                  ? 'bg-violet-500/10 text-violet-700 dark:text-violet-300 font-semibold'
-                  : 'text-gray-600 dark:text-white/50 hover:bg-black/5 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white/80'
-              }`}
-            >
-              <span className={isActive ? 'text-violet-500' : 'text-gray-400 dark:text-white/25'}>
-                {icon}
-              </span>
-              {label}
-            </button>
-          );
-        })}
+        {/* Dashboard */}
+        <button onClick={() => onNavigate('dashboard')} className={navItemClass(activePage === 'dashboard')}>
+          <span className={navIconClass(activePage === 'dashboard')}><LayoutDashboard size={16} /></span>
+          Dashboard
+        </button>
+
+        {/* Prism Agent */}
+        <button onClick={() => onNavigate('prism-agent')} className={navItemClass(activePage === 'prism-agent')}>
+          <span className={navIconClass(activePage === 'prism-agent')}><Bot size={16} /></span>
+          Prism Agent
+        </button>
+
+        {/* Data Studio (collapsible) */}
+        <div>
+          <button
+            onClick={() => {
+              setDataStudioOpen((o) => !o);
+              if (!isDataStudio) onNavigate('data-studio');
+            }}
+            className={navItemClass(isDataStudio)}
+          >
+            <span className={navIconClass(isDataStudio)}><Network size={16} /></span>
+            <span className="flex-1 text-left">Data Studio</span>
+            <ChevronDown
+              size={12}
+              className={`transition-transform ${dataStudioOpen ? 'rotate-180' : ''} ${navIconClass(isDataStudio)}`}
+            />
+          </button>
+          {dataStudioOpen && (
+            <div className="ml-5 mt-0.5 space-y-0.5 border-l border-black/5 dark:border-white/5 pl-2">
+              <button
+                onClick={() => onNavigate('data-studio')}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-[11px] font-medium transition-all ${
+                  activePage === 'data-studio'
+                    ? 'bg-violet-500/10 text-violet-700 dark:text-violet-300 font-semibold'
+                    : 'text-gray-500 dark:text-white/40 hover:bg-black/5 dark:hover:bg-white/5 hover:text-gray-800 dark:hover:text-white/70'
+                }`}
+              >
+                <Network size={12} />
+                UserMap
+              </button>
+              <button
+                onClick={() => onNavigate('data-studio-context')}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-[11px] font-medium transition-all ${
+                  activePage === 'data-studio-context'
+                    ? 'bg-violet-500/10 text-violet-700 dark:text-violet-300 font-semibold'
+                    : 'text-gray-500 dark:text-white/40 hover:bg-black/5 dark:hover:bg-white/5 hover:text-gray-800 dark:hover:text-white/70'
+                }`}
+              >
+                <Search size={12} />
+                Context
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Connectors */}
+        <button onClick={() => onNavigate('connectors')} className={navItemClass(activePage === 'connectors')}>
+          <span className={navIconClass(activePage === 'connectors')}><Plug size={16} /></span>
+          Connectors
+        </button>
+
+        {/* Logs */}
+        <button onClick={() => onNavigate('logs')} className={navItemClass(activePage === 'logs')}>
+          <span className={navIconClass(activePage === 'logs')}><ScrollText size={16} /></span>
+          Logs
+        </button>
+
+        {/* Docs */}
+        <button onClick={() => onNavigate('docs')} className={navItemClass(activePage === 'docs')}>
+          <span className={navIconClass(activePage === 'docs')}><BookOpen size={16} /></span>
+          Docs
+        </button>
       </nav>
 
       {/* Theme toggle */}

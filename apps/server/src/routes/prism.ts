@@ -4,60 +4,91 @@ import { getDb } from '../db/index.js';
 const router = Router();
 
 /**
- * POST /api/prism/context
- * 
- * The "Context Valve": Refines raw data into high-value context using Prism's logic.
- * 
- * Request: {
- *   intent: "LinkedIn message to a Software Engineer",
- *   user_id: "optional"
- * }
+ * GET /api/prism/health
+ *
+ * Returns real runtime health: connector statuses from DB, log count, sync states.
+ * Never returns fabricated data.
  */
-router.post('/', async (req: Request, res: Response) => {
-    const { intent } = req.body;
+router.get('/health', (_req: Request, res: Response) => {
+  const db = getDb();
 
-    if (!intent) {
-        return res.status(400).json({ error: 'Intent is required for Prism context refinement.' });
-    }
+  const connectors = db
+    .prepare('SELECT connector_type, last_status, enabled, last_run, last_error FROM connector_config')
+    .all() as Array<{
+      connector_type: string;
+      last_status?: string;
+      enabled: number;
+      last_run?: string;
+      last_error?: string;
+    }>;
 
-    const db = getDb();
-    
-    // 1. Fetch raw candidates (Internal search)
-    // For now we use the same FTS logic as the standard context route
-    const rows = db.prepare(`
-        SELECT content, tool, metadata 
-        FROM documents_fts fts
-        JOIN documents d ON d.id = fts.rowid
-        WHERE documents_fts MATCH ?
-        LIMIT 20
-    `).all(intent) as any[];
+  const logCount = (
+    db.prepare('SELECT COUNT(*) as c FROM logs').get() as { c: number }
+  ).c;
 
-    // 2. Here we would call an LLM (Prism) to filter these results.
-    // For the "Offline Preview", we will simulate the Prism filter logic:
-    // Prism's Logic: "Checking GitHub and email history... sending only the relevant tech stack info."
-    
-    const refinedResults = rows.filter(row => {
-        // Simple heuristic for "Tech Context" if intent mentioned software/linking
-        if (intent.toLowerCase().includes('software') || intent.toLowerCase().includes('engineer')) {
-            const content = row.content.toLowerCase();
-            return content.includes('react') || content.includes('typescript') || content.includes('github') || content.includes('repo');
-        }
-        return true;
-    }).slice(0, 5);
+  const syncStates = db
+    .prepare('SELECT tool, status, last_synced, error_msg FROM sync_state')
+    .all() as Array<{ tool: string; status: string; last_synced?: string; error_msg?: string }>;
 
-    // In a real implementation, we would pass 'rows' + 'intent' to an LLM:
-    // const prismResponse = await callLLM(`Filter these records to only what's needed for: ${intent}`, rows);
+  return res.json({
+    status: 'ok',
+    connectors: connectors.map((c) => ({
+      type: c.connector_type,
+      enabled: Boolean(c.enabled),
+      last_status: c.last_status ?? null,
+      last_run: c.last_run ?? null,
+      last_error: c.last_error ?? null,
+    })),
+    log_count: logCount,
+    sync_states: syncStates,
+    timestamp: new Date().toISOString(),
+  });
+});
 
-    return res.json({
-        intent,
-        prism_status: "REFLECTED",
-        message: "Prism has filtered the context to be intent-specific.",
-        results: refinedResults.map(r => ({
-            source: r.tool,
-            content: r.content,
-            relevance_reasoning: "Prism detected relevant tech stack in this source."
-        }))
-    });
+/**
+ * POST /api/prism/context
+ *
+ * Retrieves real context records matching the given intent using full-text search.
+ * Does not apply heuristic filters or fabricate results.
+ *
+ * Request: { intent: string }
+ * Response: { intent, results: Array<{ source, content }>, total }
+ */
+router.post('/context', async (req: Request, res: Response) => {
+  const { intent } = req.body as { intent?: string };
+
+  if (!intent || !intent.trim()) {
+    return res.status(400).json({ error: 'intent is required' });
+  }
+
+  const db = getDb();
+
+  // Full-text search against real documents
+  let rows: Array<{ content: string; tool: string; metadata: string }> = [];
+  try {
+    rows = db
+      .prepare(
+        `SELECT d.content, d.tool, d.metadata
+         FROM documents_fts fts
+         JOIN documents d ON d.id = fts.rowid
+         WHERE documents_fts MATCH ?
+         LIMIT 10`
+      )
+      .all(intent.trim()) as typeof rows;
+  } catch {
+    // FTS match error (e.g. special characters) — return empty truthfully
+    rows = [];
+  }
+
+  return res.json({
+    intent: intent.trim(),
+    results: rows.map((r) => ({
+      source: r.tool,
+      content: r.content,
+    })),
+    total: rows.length,
+  });
 });
 
 export default router;
+

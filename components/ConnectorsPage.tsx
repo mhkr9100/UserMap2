@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Plug, RefreshCw, Check, X, AlertCircle, Wifi, Clock, ArrowDown, ArrowUp } from 'lucide-react';
+import { Plug, RefreshCw, Check, X, AlertCircle, Wifi, Clock, ArrowDown, ArrowUp, Settings } from 'lucide-react';
 import type { ConnectorConfig } from '../types';
+import { IntegrationsPanel } from './IntegrationsPanel';
 
 const CONNECTOR_META: Record<string, { label: string; logo: string; description: string }> = {
   slack: { label: 'Slack', logo: '💬', description: 'Pull messages, channels, and DMs from your Slack workspace.' },
@@ -215,11 +216,16 @@ const ConfigureModal: React.FC<ConfigureModalProps> = ({ connector, onClose, onS
   );
 };
 
-export const ConnectorsPage: React.FC = () => {
+interface ConnectorsPageProps {
+  onOpenAISetup?: () => void;
+}
+
+export const ConnectorsPage: React.FC<ConnectorsPageProps> = ({ onOpenAISetup }) => {
   const [connectors, setConnectors] = useState<ConnectorConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [configuringConnector, setConfiguringConnector] = useState<ConnectorConfig | null>(null);
-  const [tab, setTab] = useState<'pull' | 'push'>('pull');
+  const [tab, setTab] = useState<'pull' | 'push' | 'ai'>('pull');
+  const [isAISetupOpen, setIsAISetupOpen] = useState(false);
 
   const fetchConnectors = useCallback(async () => {
     try {
@@ -262,21 +268,22 @@ export const ConnectorsPage: React.FC = () => {
   const pullConnectors = connectors.filter((c) => c.direction === 'pull');
   const pushConnectors = connectors.filter((c) => c.direction === 'push');
 
-  const displayed = tab === 'pull' ? pullConnectors : pushConnectors;
+  const displayed = tab === 'pull' ? pullConnectors : tab === 'push' ? pushConnectors : [];
 
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-black text-gray-900 dark:text-white">Connectors</h1>
-        <p className="text-[13px] text-gray-400 dark:text-white/30 mt-1">
-          Connect external tools to pull data into UserMap, or push your structured context to automation platforms.
-        </p>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-xl bg-black/[0.04] dark:bg-white/[0.04] w-fit">
-        {([['pull', 'Pull into UserMap', <ArrowDown key="d" size={13} />], ['push', 'Push from UserMap', <ArrowUp key="u" size={13} />]] as const).map(([id, label, icon]) => (
+        {([
+          ['pull', 'Pull into UserMap', <ArrowDown key="d" size={13} />],
+          ['push', 'Push from UserMap', <ArrowUp key="u" size={13} />],
+          ['ai', 'AI Engines', <Settings key="s" size={13} />],
+        ] as const).map(([id, label, icon]) => (
           <button
             key={id}
             onClick={() => setTab(id)}
@@ -288,43 +295,60 @@ export const ConnectorsPage: React.FC = () => {
         ))}
       </div>
 
-      {/* Description */}
-      <div className="rounded-xl border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-white/[0.03] p-4 text-[12px] text-gray-500 dark:text-white/40 leading-relaxed">
-        {tab === 'pull' ? (
-          <>
-            <strong className="text-gray-700 dark:text-white/60">Pull connectors</strong> continuously fetch your data from external platforms (Slack, Instagram, Facebook) and import it into UserMap. Prism Agent then reads and structures this data automatically. Data is pulled on a schedule (e.g., every 60 seconds) with automatic checkpointing — if interrupted, it resumes from where it left off.
-          </>
-        ) : (
-          <>
-            <strong className="text-gray-700 dark:text-white/60">Push connectors</strong> send structured context events from UserMap to your automation tools (n8n, Make, or any custom webhook endpoint) whenever you update your knowledge graph. This enables real-time personalization of any external workflow.
-          </>
-        )}
-      </div>
-
-      {/* Connector grid */}
-      {loading ? (
-        <div className="flex items-center gap-2 text-[12px] text-gray-400 dark:text-white/30 py-8">
-          <RefreshCw size={14} className="animate-spin" />
-          Loading connectors…
+      {tab === 'ai' ? (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-white/[0.03] p-4 text-[12px] text-gray-500 dark:text-white/40 leading-relaxed">
+            <strong className="text-gray-700 dark:text-white/60">AI Engines</strong> power Prism Agent. Connect ChatGPT, Claude, Gemini, or a local Ollama instance. Your credentials are stored locally and never leave your device.
+          </div>
+          <button
+            onClick={() => { setIsAISetupOpen(true); onOpenAISetup?.(); }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-500 text-white text-[12px] font-semibold hover:bg-violet-600 transition-colors"
+          >
+            <Settings size={14} />
+            Manage AI Engines
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {displayed.map((c) => (
-            <ConnectorCard
-              key={c.id}
-              connector={c}
-              onToggle={handleToggle}
-              onSync={handleSync}
-              onConfigure={setConfiguringConnector}
-            />
-          ))}
-          {displayed.length === 0 && (
-            <div className="col-span-2 text-center py-10 text-[13px] text-gray-400 dark:text-white/30">
-              <Plug size={24} className="mx-auto mb-3 opacity-30" />
-              No {tab} connectors available.
+        <>
+          {/* Description */}
+          <div className="rounded-xl border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-white/[0.03] p-4 text-[12px] text-gray-500 dark:text-white/40 leading-relaxed">
+            {tab === 'pull' ? (
+              <>
+                <strong className="text-gray-700 dark:text-white/60">Pull connectors</strong> continuously fetch your data from external platforms (Slack, Instagram, Facebook) and import it into UserMap. Prism Agent then reads and structures this data automatically. Data is pulled on a schedule with automatic checkpointing — if interrupted, it resumes from where it left off.
+              </>
+            ) : (
+              <>
+                <strong className="text-gray-700 dark:text-white/60">Push connectors</strong> send structured context events from UserMap to your automation tools (n8n, Make, or any custom webhook endpoint) whenever you update your knowledge graph.
+              </>
+            )}
+          </div>
+
+          {/* Connector grid */}
+          {loading ? (
+            <div className="flex items-center gap-2 text-[12px] text-gray-400 dark:text-white/30 py-8">
+              <RefreshCw size={14} className="animate-spin" />
+              Loading connectors…
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {displayed.map((c) => (
+                <ConnectorCard
+                  key={c.id}
+                  connector={c}
+                  onToggle={handleToggle}
+                  onSync={handleSync}
+                  onConfigure={setConfiguringConnector}
+                />
+              ))}
+              {displayed.length === 0 && (
+                <div className="col-span-2 text-center py-10 text-[13px] text-gray-400 dark:text-white/30">
+                  <Plug size={24} className="mx-auto mb-3 opacity-30" />
+                  No {tab} connectors available.
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
 
       {configuringConnector && (
@@ -334,6 +358,11 @@ export const ConnectorsPage: React.FC = () => {
           onSave={handleSaveConfig}
         />
       )}
+
+      <IntegrationsPanel
+        isOpen={isAISetupOpen}
+        onClose={() => setIsAISetupOpen(false)}
+      />
     </div>
   );
 };

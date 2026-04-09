@@ -9,6 +9,7 @@ import contextRouter from './routes/context.js';
 import prismRouter from './routes/prism.js';
 import logsRouter from './routes/logs.js';
 import connectorsRouter from './routes/connectors.js';
+import dashboardRouter from './routes/dashboard.js';
 
 const PORT = parseInt(process.env.PORT ?? '5185', 10);
 const APP_URL = process.env.APP_URL ?? `http://localhost:${PORT}`;
@@ -38,9 +39,10 @@ app.use('/api/status', statusRouter);
 app.use('/api/connections', connectionsRouter);
 app.use('/api/connect/slack', slackRouter);
 app.use('/api/context', contextRouter);
-app.use('/api/prism/context', prismRouter);
+app.use('/api/prism', prismRouter);
 app.use('/api/logs', logsRouter);
 app.use('/api/connectors', connectorsRouter);
+app.use('/api/dashboard', dashboardRouter);
 
 
 // 404 handler

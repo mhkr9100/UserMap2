@@ -8,8 +8,6 @@ import { PrismAgentPage } from './components/PrismAgentPage';
 import { LogsPage } from './components/LogsPage';
 import { DocsPage } from './components/DocsPage';
 import { ContextSearchView } from './components/ContextSearchView';
-import { ContextImportDialog } from './components/ContextImportDialog';
-import { IntegrationsPanel } from './components/IntegrationsPanel';
 import { PrismSetup } from './components/PrismSetup';
 
 import { useAuth } from './hooks/useAuth';
@@ -33,43 +31,11 @@ const App: React.FC = () => {
   const { integrations } = useIntegrations();
 
   const [activePage, setActivePage] = useState<SidebarPage>('dashboard');
-  const [isMemoryImportOpen, setIsMemoryImportOpen] = useState(false);
-  const [isMemoryImporting, setIsMemoryImporting] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
-  const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false);
   const [isPrismSetupVisible, setIsPrismSetupVisible] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) return 'dark';
     try { return (localStorage.getItem('theme') as 'light' | 'dark') || 'light'; } catch { return 'light'; }
   });
-
-  useEffect(() => {
-    if (!currentUser) return;
-    const importHandled = localStorage.getItem('usermap_seen_memory_import_prompt') === 'true';
-    if (!importHandled) setIsMemoryImportOpen(true);
-  }, [currentUser]);
-
-  const handleSkipMemoryImport = useCallback(() => {
-    localStorage.setItem('usermap_seen_memory_import_prompt', 'true');
-    setIsMemoryImportOpen(false);
-  }, []);
-
-  const handleImportMemory = useCallback(async (rawText: string) => {
-    setIsMemoryImporting(true);
-    setImportError(null);
-    try {
-      const count = await ingestExternalMemory(rawText);
-      if (count > 0) {
-        await consolidate();
-      }
-      localStorage.setItem('usermap_seen_memory_import_prompt', 'true');
-      setIsMemoryImportOpen(false);
-    } catch (err: unknown) {
-      setImportError(`Memory import failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    } finally {
-      setIsMemoryImporting(false);
-    }
-  }, [ingestExternalMemory, consolidate]);
 
   const toggleTheme = useCallback(() => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -102,7 +68,7 @@ const App: React.FC = () => {
       if (adapter) {
         structurerService.init(adapter, {
           onSearchMap: async (query) => `Background search result for: ${query}`,
-          onReadPrivate: async (_id) => ({ allowed: true, data: "Private data accessed by structurer." }),
+          onReadPrivate: async (_id) => ({ allowed: true, data: 'Private data accessed by structurer.' }),
           onCreateFact: async (label, value) => {
             addNode('root', {
               id: crypto.randomUUID(),
@@ -115,7 +81,9 @@ const App: React.FC = () => {
             });
             return true;
           },
-          onAgentThought: (thought) => console.log("[Prism Structurer]", thought)
+          onCheckSystemStatus: async () => 'Structurer running.',
+          onReadLogs: async () => '',
+          onAgentThought: (thought) => console.log('[Prism Structurer]', thought)
         });
       }
     }
@@ -125,12 +93,6 @@ const App: React.FC = () => {
     switch (activePage) {
       case 'dashboard':
         return <DashboardPage tree={userMapTree} onNavigate={setActivePage} />;
-      case 'context-search':
-        return (
-          <div className="flex-1 overflow-y-auto p-6">
-            <ContextSearchView tree={userMapTree} />
-          </div>
-        );
       case 'data-studio':
         return (
           <DataStudioPage
@@ -138,10 +100,19 @@ const App: React.FC = () => {
             onUpdateNode={updateNode}
             onDeleteNode={deleteNode}
             onAddNode={addNode}
+            onIngestMemory={ingestExternalMemory}
+            onConsolidate={consolidate}
+            isConsolidating={isConsolidating}
           />
         );
+      case 'data-studio-context':
+        return (
+          <div className="flex-1 overflow-y-auto p-6">
+            <ContextSearchView tree={userMapTree} />
+          </div>
+        );
       case 'connectors':
-        return <ConnectorsPage />;
+        return <ConnectorsPage onOpenAISetup={() => setIsPrismSetupVisible(true)} />;
       case 'prism-agent':
         return (
           <PrismAgentPage
@@ -172,44 +143,18 @@ const App: React.FC = () => {
 
       {/* Main content */}
       <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-        {/* Top action bar */}
-        <div className="h-12 shrink-0 border-b border-black/5 dark:border-white/5 bg-white/50 dark:bg-black/10 backdrop-blur-xl px-4 flex items-center justify-end gap-2">
-          {isConsolidating && (
+        {/* Top action bar — consolidation status only */}
+        {isConsolidating && (
+          <div className="h-8 shrink-0 border-b border-black/5 dark:border-white/5 bg-white/50 dark:bg-black/10 backdrop-blur-xl px-4 flex items-center">
             <span className="text-[10px] text-violet-500 font-semibold animate-pulse">Prism consolidating…</span>
-          )}
-          <button
-            onClick={() => setIsIntegrationsPanelOpen(true)}
-            className="h-8 px-3 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.04] text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-600 dark:text-white/50 hover:text-gray-900 dark:hover:text-white/80 transition-colors"
-            title="Manage connected tools"
-          >
-            Tools
-          </button>
-          <button
-            onClick={() => setIsMemoryImportOpen(true)}
-            className="h-8 px-3 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.04] text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-600 dark:text-white/50 hover:text-gray-900 dark:hover:text-white/80 transition-colors"
-          >
-            Import
-          </button>
-        </div>
+          </div>
+        )}
 
         {/* Page content */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {renderPage()}
         </div>
       </main>
-
-      <ContextImportDialog
-        isOpen={isMemoryImportOpen}
-        isImporting={isMemoryImporting}
-        error={importError}
-        onSkip={handleSkipMemoryImport}
-        onImport={handleImportMemory}
-      />
-
-      <IntegrationsPanel
-        isOpen={isIntegrationsPanelOpen}
-        onClose={() => setIsIntegrationsPanelOpen(false)}
-      />
 
       <PrismSetup
         isOpen={isPrismSetupVisible}

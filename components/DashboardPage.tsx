@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Network, Plug, ScrollText, Bot, TrendingUp } from 'lucide-react';
+import { Network, Plug, ScrollText, Bot, TrendingUp, Loader2 } from 'lucide-react';
 import type { SidebarPage } from './Sidebar';
 import type { PageNode } from '../types';
 
@@ -54,29 +54,78 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, sub, onClick, a
   );
 };
 
-const RECENT_EVENTS = [
-  { type: 'prism.structure', summary: 'Prism structured 3 new nodes', time: '2 min ago', icon: '🤖' },
-  { type: 'connector.pull.success', summary: 'Slack sync completed', time: '5 min ago', icon: '✅' },
-  { type: 'user.update', summary: 'Node "Career" updated', time: '12 min ago', icon: '✏️' },
-  { type: 'connector.pull.success', summary: 'Instagram sync completed', time: '1 hr ago', icon: '✅' },
-  { type: 'prism.classify', summary: 'Prism classified 12 messages', time: '2 hr ago', icon: '🔍' },
-];
+interface LogEvent {
+  id: number;
+  event_type: string;
+  source_tool?: string;
+  actor: string;
+  summary?: string;
+  created_at: string;
+}
+
+const EVENT_ICON: Record<string, string> = {
+  'connector.pull.success': '✅',
+  'connector.pull.error': '❌',
+  'connector.sync.triggered': '🔄',
+  'connector.disconnected': '🔌',
+  'prism.classify': '🔍',
+  'prism.structure': '🤖',
+  'prism.feedback.learned': '🧠',
+  'user.create': '➕',
+  'user.update': '✏️',
+  'user.delete': '🗑️',
+  'push.webhook.sent': '📤',
+  'push.webhook.failed': '⚠️',
+};
+
+function eventIcon(type: string): string {
+  return EVENT_ICON[type] ?? '📋';
+}
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ tree, onNavigate }) => {
   const totalNodes = countNodes(tree) - 1; // exclude root
   const totalCategories = countCategories(tree);
   const [logCount, setLogCount] = useState<number>(0);
   const [connectorCount, setConnectorCount] = useState<number>(0);
+  const [recentLogs, setRecentLogs] = useState<LogEvent[]>([]);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [logsLoading, setLogsLoading] = useState(true);
 
   useEffect(() => {
     fetch('/api/logs?limit=1')
       .then((r) => r.json())
       .then((d) => setLogCount(d.total ?? 0))
       .catch(() => {});
+
     fetch('/api/connectors?direction=pull')
       .then((r) => r.json())
       .then((d) => setConnectorCount((d.connectors ?? []).filter((c: { enabled: boolean }) => c.enabled).length))
       .catch(() => {});
+
+    // Load recent activity from real logs
+    fetch('/api/logs?limit=5')
+      .then((r) => r.json())
+      .then((d) => setRecentLogs(d.logs ?? []))
+      .catch(() => setRecentLogs([]))
+      .finally(() => setLogsLoading(false));
+
+    // Load 12h summary
+    fetch('/api/dashboard/summary')
+      .then((r) => r.json())
+      .then((d) => setSummary(d.summary ?? null))
+      .catch(() => setSummary(null))
+      .finally(() => setSummaryLoading(false));
   }, []);
 
   return (
@@ -84,9 +133,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ tree, onNavigate }
       {/* Header */}
       <div>
         <h1 className="text-2xl font-black text-gray-900 dark:text-white">Dashboard</h1>
-        <p className="text-[13px] text-gray-400 dark:text-white/30 mt-1">
-          Your personal context overview — AI knows the world; UserMap helps AI know <em>you</em>.
-        </p>
+      </div>
+
+      {/* 12h summary */}
+      <div className="rounded-2xl border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-white/[0.03] p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <TrendingUp size={15} className="text-violet-500" />
+          <h2 className="text-[12px] font-bold text-gray-900 dark:text-white uppercase tracking-widest">Last 12 hours</h2>
+        </div>
+        {summaryLoading ? (
+          <div className="flex items-center gap-2 text-[12px] text-gray-400 dark:text-white/30">
+            <Loader2 size={12} className="animate-spin" />
+            Loading…
+          </div>
+        ) : summary ? (
+          <p className="text-[12px] text-gray-600 dark:text-white/60 leading-relaxed">{summary}</p>
+        ) : (
+          <p className="text-[12px] text-gray-400 dark:text-white/30 italic">No activity in the last 12 hours.</p>
+        )}
       </div>
 
       {/* Stats grid */}
@@ -125,60 +189,31 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ tree, onNavigate }
         />
       </div>
 
-      {/* How it works */}
-      <div className="rounded-2xl border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-white/[0.03] p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp size={16} className="text-violet-500" />
-          <h2 className="text-[13px] font-bold text-gray-900 dark:text-white uppercase tracking-widest">How UserMap works</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            {
-              step: '1',
-              title: 'Connect your tools',
-              desc: 'Pull data continuously from Slack, Instagram, Facebook and more via the Connectors page.',
-              color: 'bg-violet-500',
-            },
-            {
-              step: '2',
-              title: 'Prism structures it',
-              desc: 'Prism Agent reads your data, classifies it into categories, and updates your knowledge graph.',
-              color: 'bg-emerald-500',
-            },
-            {
-              step: '3',
-              title: 'AI knows you',
-              desc: 'Query your context, push to n8n/Make, and let any AI tool answer personal-context questions.',
-              color: 'bg-amber-500',
-            },
-          ].map(({ step, title, desc, color }) => (
-            <div key={step} className="flex gap-3">
-              <div className={`w-7 h-7 rounded-xl ${color} text-white text-[11px] font-black flex items-center justify-center shrink-0 mt-0.5`}>
-                {step}
-              </div>
-              <div>
-                <div className="text-[12px] font-semibold text-gray-900 dark:text-white">{title}</div>
-                <div className="text-[11px] text-gray-400 dark:text-white/30 mt-1 leading-relaxed">{desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Recent events */}
+      {/* Recent activity — real data only */}
       <div className="rounded-2xl border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-white/[0.03] p-6">
         <h2 className="text-[13px] font-bold text-gray-900 dark:text-white uppercase tracking-widest mb-4">Recent Activity</h2>
-        <div className="space-y-3">
-          {RECENT_EVENTS.map((ev, i) => (
-            <div key={i} className="flex items-start gap-3">
-              <span className="text-base mt-0.5">{ev.icon}</span>
-              <div className="flex-1 min-w-0">
-                <div className="text-[12px] text-gray-700 dark:text-white/70">{ev.summary}</div>
-                <div className="text-[10px] text-gray-400 dark:text-white/25 mt-0.5">{ev.type} · {ev.time}</div>
+        {logsLoading ? (
+          <div className="flex items-center gap-2 text-[12px] text-gray-400 dark:text-white/30 py-4">
+            <Loader2 size={14} className="animate-spin" />
+            Loading…
+          </div>
+        ) : recentLogs.length === 0 ? (
+          <p className="text-[12px] text-gray-400 dark:text-white/30 italic py-4">No activity recorded yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {recentLogs.map((ev) => (
+              <div key={ev.id} className="flex items-start gap-3">
+                <span className="text-base mt-0.5">{eventIcon(ev.event_type)}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12px] text-gray-700 dark:text-white/70">{ev.summary || ev.event_type}</div>
+                  <div className="text-[10px] text-gray-400 dark:text-white/25 mt-0.5">
+                    {ev.event_type} · {relativeTime(ev.created_at)}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
         <button
           onClick={() => onNavigate('logs')}
           className="mt-4 text-[11px] text-violet-600 dark:text-violet-300 hover:underline font-medium"
