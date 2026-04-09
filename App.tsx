@@ -9,6 +9,7 @@ import { LogsPage } from './components/LogsPage';
 import { DocsPage } from './components/DocsPage';
 import { ContextSearchView } from './components/ContextSearchView';
 import { PrismSetup } from './components/PrismSetup';
+import { UserFilesPage } from './components/UserFilesPage';
 
 import { useAuth } from './hooks/useAuth';
 import { useUserMap } from './hooks/useUserMap';
@@ -111,6 +112,8 @@ const App: React.FC = () => {
             <ContextSearchView tree={userMapTree} />
           </div>
         );
+      case 'data-studio-files':
+        return <UserFilesPage />;
       case 'connectors':
         return <ConnectorsPage onOpenAISetup={() => setIsPrismSetupVisible(true)} />;
       case 'prism-agent':

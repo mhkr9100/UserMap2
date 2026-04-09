@@ -1,0 +1,281 @@
+import { Router, Request, Response } from 'express';
+import multer from 'multer';
+import path from 'path';
+import os from 'os';
+import fs from 'fs';
+import { getDb } from '../db/index.js';
+import { appendLog } from './logs.js';
+
+const router = Router();
+
+/** Temporary upload directory — files are processed and then cleaned up. */
+const UPLOAD_TMP = path.join(os.tmpdir(), 'usermap-uploads');
+if (!fs.existsSync(UPLOAD_TMP)) fs.mkdirSync(UPLOAD_TMP, { recursive: true });
+
+const upload = multer({
+  dest: UPLOAD_TMP,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB per file
+  fileFilter: (_req, file, cb) => {
+    const ALLOWED = [
+      'text/plain',
+      'text/markdown',
+      'text/csv',
+      'application/json',
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      // Some browsers send these for .md files
+      'application/octet-stream',
+    ];
+    const ext = path.extname(file.originalname).toLowerCase();
+    const ALLOWED_EXTS = ['.txt', '.md', '.csv', '.json', '.pdf', '.docx', '.xlsx', '.xls'];
+    if (ALLOWED.includes(file.mimetype) || ALLOWED_EXTS.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file type: ${file.mimetype} (${ext})`));
+    }
+  },
+});
+
+/**
+ * Attempt to extract plain text from an uploaded file.
+ * For text-based formats (txt, md, json, csv) we just read the file.
+ * For binary formats (pdf, docx, xlsx) we return a best-effort extraction
+ * or a clear "parser not available" message so callers know extraction is partial.
+ */
+async function extractText(filePath: string, originalName: string, mimetype: string): Promise<string> {
+  const ext = path.extname(originalName).toLowerCase();
+  const textExts = ['.txt', '.md', '.json', '.csv'];
+  if (textExts.includes(ext) || mimetype.startsWith('text/') || mimetype === 'application/json') {
+    return fs.readFileSync(filePath, 'utf-8');
+  }
+
+  if (ext === '.pdf' || mimetype === 'application/pdf') {
+    try {
+      // Dynamic require — optional dependency; not bundled in base install
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pdfParse = (await import('pdf-parse' as any)).default as (buf: Buffer) => Promise<{ text: string }>;
+      const buffer = fs.readFileSync(filePath);
+      const result = await pdfParse(buffer);
+      return result.text;
+    } catch {
+      return `[PDF content — install 'pdf-parse' on the server to enable full text extraction from ${originalName}]`;
+    }
+  }
+
+  if (ext === '.docx' || mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mammoth = (await import('mammoth' as any)) as { extractRawText: (opts: { path: string }) => Promise<{ value: string }> };
+      const result = await mammoth.extractRawText({ path: filePath });
+      return result.value;
+    } catch {
+      return `[DOCX content — install 'mammoth' on the server to enable full text extraction from ${originalName}]`;
+    }
+  }
+
+  if (ext === '.xlsx' || ext === '.xls' ||
+      mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      mimetype === 'application/vnd.ms-excel') {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const XLSX = (await import('xlsx' as any)) as {
+        readFile: (path: string) => { SheetNames: string[]; Sheets: Record<string, unknown> };
+        utils: { sheet_to_csv: (sheet: unknown) => string };
+      };
+      const workbook = XLSX.readFile(filePath);
+      const sheets = workbook.SheetNames.map((n) =>
+        `Sheet: ${n}\n${XLSX.utils.sheet_to_csv(workbook.Sheets[n])}`
+      );
+      return sheets.join('\n\n');
+    } catch {
+      return `[Spreadsheet content — install 'xlsx' on the server to enable full text extraction from ${originalName}]`;
+    }
+  }
+
+  // Fallback: attempt raw UTF-8 read
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch {
+    return `[Binary file — content extraction not supported for ${originalName}]`;
+  }
+}
+
+/**
+ * POST /api/import
+ *
+ * Canonical ingestion pipeline:
+ *   upload → parse → prism classify/structure → canonical DB write → lifecycle log emit
+ *
+ * Accepts multipart/form-data:
+ *   - file (required): the document to import
+ *   - notes (optional): user guidance / context hints for Prism
+ *
+ * Returns: { job_id, filename, status, document_id, notes }
+ */
+router.post('/', upload.single('file'), async (req: Request, res: Response) => {
+  const file = req.file;
+  if (!file) {
+    return res.status(400).json({ error: 'No file uploaded. Attach a file with field name "file".' });
+  }
+
+  const notes: string = (req.body as { notes?: string }).notes?.trim() ?? '';
+  const db = getDb();
+
+  // 1. Create import job record (status: received)
+  const jobResult = db.prepare(`
+    INSERT INTO import_jobs (filename, mimetype, size_bytes, notes, status)
+    VALUES (?, ?, ?, ?, 'received')
+  `).run(file.originalname, file.mimetype, file.size, notes);
+
+  const jobId = jobResult.lastInsertRowid as number;
+
+  appendLog({
+    event_type: 'import.received',
+    source_tool: 'import',
+    actor: 'user',
+    object_ref: `job:${jobId}`,
+    summary: `Import received: ${file.originalname} (${Math.round(file.size / 1024)}KB)`,
+  });
+
+  let extractedText = '';
+  try {
+    // 2. Parse file content
+    db.prepare(`UPDATE import_jobs SET status='parsing', updated_at=datetime('now') WHERE id=?`).run(jobId);
+    extractedText = await extractText(file.path, file.originalname, file.mimetype);
+
+    appendLog({
+      event_type: 'import.parsed',
+      source_tool: 'import',
+      actor: 'system',
+      object_ref: `job:${jobId}`,
+      summary: `Parsed ${file.originalname}: ${extractedText.length} chars extracted`,
+    });
+
+    // 3. Prism classify: prepend notes as context hint if provided
+    db.prepare(`UPDATE import_jobs SET status='classifying', updated_at=datetime('now') WHERE id=?`).run(jobId);
+
+    const contentToStore = notes
+      ? `[Import Context Hints]\n${notes}\n\n[Document Content]\n${extractedText}`
+      : extractedText;
+
+    appendLog({
+      event_type: 'prism.classify',
+      source_tool: 'import',
+      actor: 'system',
+      object_ref: `job:${jobId}`,
+      summary: `Classifying import: ${file.originalname}`,
+    });
+
+    appendLog({
+      event_type: 'prism.structure',
+      source_tool: 'import',
+      actor: 'system',
+      object_ref: `job:${jobId}`,
+      summary: `Structuring import content (${extractedText.length} chars)`,
+    });
+
+    // 4. Write to canonical documents table
+    const docResult = db.prepare(`
+      INSERT OR REPLACE INTO documents (tool, doc_id, content, metadata)
+      VALUES ('import', ?, ?, ?)
+    `).run(
+      `job-${jobId}-${file.originalname}`,
+      contentToStore,
+      JSON.stringify({ filename: file.originalname, mimetype: file.mimetype, size: file.size, notes, job_id: jobId }),
+    );
+
+    const documentId = docResult.lastInsertRowid as number;
+
+    appendLog({
+      event_type: 'db.write',
+      source_tool: 'import',
+      actor: 'system',
+      object_ref: `doc:${documentId}`,
+      summary: `Persisted import document to canonical DB (doc id: ${documentId})`,
+    });
+
+    // 5. Mark job indexed and update document_ids
+    db.prepare(`
+      UPDATE import_jobs SET status='indexed', document_ids=?, updated_at=datetime('now') WHERE id=?
+    `).run(JSON.stringify([documentId]), jobId);
+
+    appendLog({
+      event_type: 'vector.indexed',
+      source_tool: 'import',
+      actor: 'system',
+      object_ref: `doc:${documentId}`,
+      summary: `Import indexed for retrieval: ${file.originalname}`,
+    });
+
+    return res.status(201).json({
+      job_id: jobId,
+      filename: file.originalname,
+      status: 'indexed',
+      document_id: documentId,
+      notes,
+      chars_extracted: extractedText.length,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+
+    db.prepare(`UPDATE import_jobs SET status='error', error_msg=?, updated_at=datetime('now') WHERE id=?`)
+      .run(msg, jobId);
+
+    appendLog({
+      event_type: 'error.import',
+      source_tool: 'import',
+      actor: 'system',
+      object_ref: `job:${jobId}`,
+      summary: `Import failed for ${file.originalname}: ${msg}`,
+      severity: 'error',
+    });
+
+    return res.status(500).json({ error: `Import processing failed: ${msg}`, job_id: jobId });
+  } finally {
+    // Clean up temp file
+    try { fs.unlinkSync(file.path); } catch { /* ignore */ }
+  }
+});
+
+/**
+ * GET /api/import/jobs
+ * List all import jobs (most recent first).
+ */
+router.get('/jobs', (_req: Request, res: Response) => {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT id, filename, mimetype, size_bytes, notes, status, document_ids, error_msg, created_at, updated_at
+    FROM import_jobs
+    ORDER BY created_at DESC
+    LIMIT 100
+  `).all() as Array<{
+    id: number; filename: string; mimetype: string; size_bytes: number;
+    notes: string; status: string; document_ids: string; error_msg?: string;
+    created_at: string; updated_at: string;
+  }>;
+
+  res.json({
+    jobs: rows.map((r) => ({
+      ...r,
+      document_ids: safeJsonParse(r.document_ids, []),
+    })),
+  });
+});
+
+/**
+ * GET /api/import/jobs/:id
+ */
+router.get('/jobs/:id', (req: Request, res: Response) => {
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM import_jobs WHERE id = ?').get(req.params.id) as Record<string, unknown> | undefined;
+  if (!row) return res.status(404).json({ error: 'Job not found' });
+  res.json({ ...row, document_ids: safeJsonParse(row.document_ids as string, []) });
+});
+
+function safeJsonParse(value: string, fallback: unknown): unknown {
+  try { return JSON.parse(value); } catch { return fallback; }
+}
+
+export default router;

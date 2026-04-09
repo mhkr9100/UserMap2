@@ -135,7 +135,7 @@ export interface LogEvent {
 // Phase 5 Final: Connectors
 // ---------------------------------------------------------------------------
 
-export type ConnectorDirection = 'pull' | 'push';
+export type ConnectorDirection = 'pull' | 'push' | 'ai';
 
 export interface ConnectorConfig {
   id: number;
@@ -148,6 +148,40 @@ export interface ConnectorConfig {
   last_run?: string;
   last_status?: string;
   last_error?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Custom APIs & Webhooks (Fix Pack A)
+// ---------------------------------------------------------------------------
+
+export interface CustomApi {
+  id?: number;
+  name: string;
+  direction: 'pull' | 'push';
+  url: string;
+  method: string;
+  headers?: Record<string, string>;
+  body_template?: string;
+  enabled: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Import Jobs (Fix Pack A)
+// ---------------------------------------------------------------------------
+
+export interface ImportJob {
+  id: number;
+  filename: string;
+  mimetype: string;
+  size_bytes: number;
+  notes: string;
+  status: 'received' | 'parsing' | 'classifying' | 'indexed' | 'error';
+  document_ids: number[];
+  error_msg?: string;
   created_at: string;
   updated_at: string;
 }

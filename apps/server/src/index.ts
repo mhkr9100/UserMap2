@@ -10,6 +10,8 @@ import prismRouter from './routes/prism.js';
 import logsRouter from './routes/logs.js';
 import connectorsRouter from './routes/connectors.js';
 import dashboardRouter from './routes/dashboard.js';
+import importRouter from './routes/import.js';
+import customApisRouter from './routes/custom-apis.js';
 
 const PORT = parseInt(process.env.PORT ?? '5185', 10);
 const APP_URL = process.env.APP_URL ?? `http://localhost:${PORT}`;
@@ -43,6 +45,8 @@ app.use('/api/prism', prismRouter);
 app.use('/api/logs', logsRouter);
 app.use('/api/connectors', connectorsRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/import', importRouter);
+app.use('/api/custom-apis', customApisRouter);
 
 
 // 404 handler

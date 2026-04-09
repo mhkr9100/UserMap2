@@ -107,9 +107,47 @@ export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
       const finalMessages = await runPrismTurn(adapter, updatedHistory, {
         onAgentThought: (thought) => setAgentThought(thought),
         onSearchMap: async (query) => {
-          const hits = naiveSearchMap(tree, query);
-          if (hits.length === 0) return 'No results found in public map.';
-          return hits.slice(0, 5).map((h) => `[${h.id}] ${h.label}: ${h.value || ''}`).join('\n');
+          // 1. Search backend indexed context (uploaded docs + connector data)
+          let backendResults = '';
+          try {
+            const res = await fetch('/api/prism/context', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ intent: query }),
+            });
+            if (res.ok) {
+              const data = await res.json() as { results?: Array<{ source: string; content: string }>; total?: number };
+              if ((data.results ?? []).length > 0) {
+                backendResults = (data.results ?? [])
+                  .slice(0, 5)
+                  .map((r) => `[source:${r.source}] ${r.content.slice(0, 500)}`)
+                  .join('\n---\n');
+              }
+            }
+          } catch { /* server unreachable — fall through to local */ }
+
+          // 2. Also search local in-memory map for nodes not yet on backend
+          const localHits = naiveSearchMap(tree, query);
+          const localResults = localHits.length > 0
+            ? localHits.slice(0, 3).map((h) => `[local:${h.id}] ${h.label}: ${h.value || ''}`)
+            : [];
+
+          // Emit chat.retrieve log (fire-and-forget)
+          fetch('/api/logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event_type: 'chat.retrieve',
+              source_tool: 'prism',
+              actor: 'system',
+              summary: `Context search: "${query}" — ${backendResults ? 'found indexed context' : 'no indexed context'}; ${localHits.length} local nodes`,
+            }),
+          }).catch(() => {});
+
+          if (!backendResults && localResults.length === 0) {
+            return 'No context found in indexed documents or knowledge graph for this query.';
+          }
+          return [backendResults, ...localResults].filter(Boolean).join('\n---\n');
         },
         onReadPrivate: (nodeId, context) =>
           new Promise((resolve) => {
@@ -171,6 +209,21 @@ export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
 
       const newHistory = [...finalMessages];
       setHistory(newHistory);
+
+      // Emit chat.answer log (fire-and-forget)
+      const lastAssistantMsg = [...finalMessages].reverse().find((m) => m.role === 'assistant');
+      if (lastAssistantMsg) {
+        fetch('/api/logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_type: 'chat.answer',
+            source_tool: 'prism',
+            actor: 'system',
+            summary: `Prism answered: "${lastAssistantMsg.content.slice(0, 120)}"`,
+          }),
+        }).catch(() => {});
+      }
 
       const displayMsgs = newHistory
         .map((m) => ({

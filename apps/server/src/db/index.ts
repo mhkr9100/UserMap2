@@ -95,11 +95,11 @@ function initSchema(db: Database.Database): void {
       updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
     );
 
-    -- Connector configuration: pull and push (Phase 5 Final)
+    -- Connector configuration: pull, push, and ai engines
     CREATE TABLE IF NOT EXISTS connector_config (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
       name         TEXT    NOT NULL UNIQUE,
-      direction    TEXT    NOT NULL CHECK(direction IN ('pull', 'push')),
+      direction    TEXT    NOT NULL CHECK(direction IN ('pull', 'push', 'ai')),
       connector_type TEXT  NOT NULL,
       config       TEXT    NOT NULL DEFAULT '{}',
       enabled      INTEGER NOT NULL DEFAULT 1,
@@ -107,6 +107,34 @@ function initSchema(db: Database.Database): void {
       last_run     TEXT,
       last_status  TEXT,
       last_error   TEXT,
+      created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Import jobs: file uploads through the canonical ingestion pipeline
+    CREATE TABLE IF NOT EXISTS import_jobs (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      filename     TEXT    NOT NULL,
+      mimetype     TEXT    NOT NULL DEFAULT '',
+      size_bytes   INTEGER NOT NULL DEFAULT 0,
+      notes        TEXT    NOT NULL DEFAULT '',
+      status       TEXT    NOT NULL DEFAULT 'received' CHECK(status IN ('received','parsing','classifying','indexed','error')),
+      document_ids TEXT    NOT NULL DEFAULT '[]',
+      error_msg    TEXT,
+      created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Custom API definitions (user-defined pull/push endpoints)
+    CREATE TABLE IF NOT EXISTS custom_apis (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      name         TEXT    NOT NULL UNIQUE,
+      direction    TEXT    NOT NULL CHECK(direction IN ('pull', 'push')),
+      url          TEXT    NOT NULL,
+      method       TEXT    NOT NULL DEFAULT 'GET',
+      headers      TEXT    NOT NULL DEFAULT '{}',
+      body_template TEXT   NOT NULL DEFAULT '',
+      enabled      INTEGER NOT NULL DEFAULT 1,
       created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
       updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
     );
@@ -122,6 +150,10 @@ function initSchema(db: Database.Database): void {
       { name: 'n8n-push', direction: 'push', connector_type: 'n8n', config: '{}', frequency_sec: 0 },
       { name: 'make-push', direction: 'push', connector_type: 'make', config: '{}', frequency_sec: 0 },
       { name: 'custom-webhook-push', direction: 'push', connector_type: 'webhook', config: '{}', frequency_sec: 0 },
+      { name: 'chatgpt-ai', direction: 'ai', connector_type: 'chatgpt', config: '{}', frequency_sec: 0 },
+      { name: 'claude-ai', direction: 'ai', connector_type: 'claude', config: '{}', frequency_sec: 0 },
+      { name: 'gemini-ai', direction: 'ai', connector_type: 'gemini', config: '{}', frequency_sec: 0 },
+      { name: 'ollama-ai', direction: 'ai', connector_type: 'ollama', config: '{}', frequency_sec: 0 },
     ];
     const insert = db.prepare(
       `INSERT OR IGNORE INTO connector_config (name, direction, connector_type, config, frequency_sec)

@@ -6,15 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>UserMap</title>
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: *; connect-src 'self' ws://localhost:* http://localhost:* https://generativelanguage.googleapis.com https://api.anthropic.com https://api.openai.com;" />
-  <script>
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'light') {
-      document.documentElement.classList.remove('dark');
-    } else {
-      document.documentElement.classList.add('dark');
-      if (!savedTheme) localStorage.setItem('theme', 'dark');
-    }
-  </script>
+  <script src="/theme-init.js"></script>
 </head>
 <body class="bg-[#F8F9FA] text-[#1A1A1A] dark:bg-[#1A1A1A] dark:text-[#FFFFFF] transition-colors duration-300">
   <div id="root"></div>

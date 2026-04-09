@@ -76,6 +76,14 @@ const EVENT_ICON: Record<string, string> = {
   'user.delete': '🗑️',
   'push.webhook.sent': '📤',
   'push.webhook.failed': '⚠️',
+  'import.received': '📥',
+  'import.parsed': '📄',
+  'db.write': '💾',
+  'vector.indexed': '🔢',
+  'chat.retrieve': '🔎',
+  'chat.answer': '💬',
+  'custom_api.created': '🔗',
+  'custom_api.deleted': '🗑️',
 };
 
 function eventIcon(type: string): string {

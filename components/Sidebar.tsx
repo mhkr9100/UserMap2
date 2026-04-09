@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { LayoutDashboard, Network, Plug, Bot, ScrollText, BookOpen, Sun, Moon, ChevronDown, Search } from 'lucide-react';
+import { LayoutDashboard, Network, Plug, Bot, ScrollText, BookOpen, Sun, Moon, ChevronDown, Search, FolderOpen } from 'lucide-react';
 import { BrandMark } from './icons/BrandMark';
 
 export type SidebarPage =
@@ -7,6 +7,7 @@ export type SidebarPage =
   | 'prism-agent'
   | 'data-studio'
   | 'data-studio-context'
+  | 'data-studio-files'
   | 'connectors'
   | 'logs'
   | 'docs';
@@ -19,7 +20,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate, theme, onToggleTheme }) => {
-  const isDataStudio = activePage === 'data-studio' || activePage === 'data-studio-context';
+  const isDataStudio = activePage === 'data-studio' || activePage === 'data-studio-context' || activePage === 'data-studio-files';
   const [dataStudioOpen, setDataStudioOpen] = useState(isDataStudio);
 
   // Sync open state when activePage changes externally
@@ -101,6 +102,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate, theme,
               >
                 <Search size={12} />
                 Context
+              </button>
+              <button
+                onClick={() => onNavigate('data-studio-files')}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-[11px] font-medium transition-all ${
+                  activePage === 'data-studio-files'
+                    ? 'bg-violet-500/10 text-violet-700 dark:text-violet-300 font-semibold'
+                    : 'text-gray-500 dark:text-white/40 hover:bg-black/5 dark:hover:bg-white/5 hover:text-gray-800 dark:hover:text-white/70'
+                }`}
+              >
+                <FolderOpen size={12} />
+                User Files
               </button>
             </div>
           )}

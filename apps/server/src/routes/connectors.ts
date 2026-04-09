@@ -7,7 +7,7 @@ const router = Router();
 export interface ConnectorConfig {
   id?: number;
   name: string;
-  direction: 'pull' | 'push';
+  direction: 'pull' | 'push' | 'ai';
   connector_type: string;
   config?: Record<string, unknown>;
   enabled?: boolean;
