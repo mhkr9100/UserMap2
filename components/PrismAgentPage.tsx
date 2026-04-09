@@ -17,6 +17,7 @@ interface DisplayMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   error?: boolean;
+  isSystemInternal?: boolean;
 }
 
 interface PrivacyRequest {

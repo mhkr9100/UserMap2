@@ -99,8 +99,8 @@ export async function runPrismTurn(
         const response = await adapter.sendMessage(currentMessages, []);
 
         const text = response.text || '';
-        // Match the first JSON tool-call block
-        const match = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+        // Match the first JSON tool-call block - greedy inner match to handle nested objects
+        const match = text.match(/```json\s*(\{[\s\S]*\})\s*```/);
 
         currentMessages.push({ role: 'assistant', content: text });
 

@@ -97,7 +97,7 @@ export const DataStudioPage: React.FC<DataStudioPageProps> = ({
       <div className="shrink-0 px-6 py-4 border-b border-black/5 dark:border-white/5 flex items-center gap-3">
         <Network size={18} className="text-violet-500" />
         <div>
-          <h1 className="text-[14px] font-black text-gray-900 dark:text-white uppercase tracking-widest">UserMap</h1>
+          <h1 className="text-[14px] font-black text-gray-900 dark:text-white uppercase tracking-widest">Data Studio</h1>
           <p className="text-[11px] text-gray-400 dark:text-white/30">
             Knowledge graph. Hover a node for edit, delete, and add actions.
           </p>

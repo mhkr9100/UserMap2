@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { LayoutDashboard, Network, Plug, Bot, ScrollText, BookOpen, Sun, Moon, ChevronDown, Search } from 'lucide-react';
 import { BrandMark } from './icons/BrandMark';
 
@@ -21,6 +21,11 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate, theme, onToggleTheme }) => {
   const isDataStudio = activePage === 'data-studio' || activePage === 'data-studio-context';
   const [dataStudioOpen, setDataStudioOpen] = useState(isDataStudio);
+
+  // Sync open state when activePage changes externally
+  useEffect(() => {
+    if (isDataStudio) setDataStudioOpen(true);
+  }, [isDataStudio]);
 
   const navItemClass = (active: boolean) =>
     `w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all text-[12px] font-medium ${

@@ -62,46 +62,46 @@ router.get('/summary', (_req: Request, res: Response) => {
   const errorConnectors = connectors.filter((c) => c.last_error);
 
   // Build natural language summary from real data
-  const parts: string[] = [];
+  const summaryParts: string[] = [];
 
-  parts.push(`${logs.length} event${logs.length !== 1 ? 's' : ''} recorded in the last 12 hours.`);
+  summaryParts.push(`${logs.length} event${logs.length !== 1 ? 's' : ''} recorded in the last 12 hours.`);
 
   const syncSuccess = counts['connector.pull.success'] ?? 0;
   const syncError = counts['connector.pull.error'] ?? 0;
   if (syncSuccess > 0 || syncError > 0) {
-    parts.push(
+    summaryParts.push(
       `Connector syncs: ${syncSuccess} successful${syncError > 0 ? `, ${syncError} failed` : ''}.`
     );
   }
 
   const prismEvents = (counts['prism.classify'] ?? 0) + (counts['prism.structure'] ?? 0);
   if (prismEvents > 0) {
-    parts.push(`Prism processed ${prismEvents} item${prismEvents !== 1 ? 's' : ''}.`);
+    summaryParts.push(`Prism processed ${prismEvents} item${prismEvents !== 1 ? 's' : ''}.`);
   }
 
   const userEdits =
     (counts['user.create'] ?? 0) + (counts['user.update'] ?? 0) + (counts['user.delete'] ?? 0);
   if (userEdits > 0) {
-    parts.push(`${userEdits} user edit${userEdits !== 1 ? 's' : ''} to the knowledge graph.`);
+    summaryParts.push(`${userEdits} user edit${userEdits !== 1 ? 's' : ''} to the knowledge graph.`);
   }
 
   if (activeConnectors.length > 0) {
-    parts.push(
+    summaryParts.push(
       `Active connectors: ${activeConnectors.map((c) => c.connector_type).join(', ')}.`
     );
   }
 
   if (errorConnectors.length > 0) {
-    parts.push(
+    summaryParts.push(
       `Connector issues: ${errorConnectors.map((c) => `${c.connector_type} (${c.last_error})`).join('; ')}.`
     );
   }
 
   if (errors.length > 0 && errors.length <= 3) {
-    parts.push(`Errors: ${errors.join('; ')}.`);
+    summaryParts.push(`Errors: ${errors.join('; ')}.`);
   }
 
-  return res.json({ summary: parts.join(' '), event_count: logs.length });
+  return res.json({ summary: summaryParts.join(' '), event_count: logs.length });
 });
 
 export default router;
