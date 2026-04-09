@@ -69,5 +69,64 @@ function initSchema(db: Database.Database): void {
       INSERT INTO documents_fts(rowid, content, metadata)
         VALUES (new.id, new.content, new.metadata);
     END;
+
+    -- Lifecycle event logs (Phase 5 Final)
+    CREATE TABLE IF NOT EXISTS logs (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_type   TEXT    NOT NULL,
+      source_tool  TEXT,
+      actor        TEXT    NOT NULL DEFAULT 'system',
+      object_ref   TEXT,
+      summary      TEXT,
+      before_state TEXT,
+      after_state  TEXT,
+      severity     TEXT    NOT NULL DEFAULT 'info',
+      created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Per-source sync checkpoints (Phase 5 Final)
+    CREATE TABLE IF NOT EXISTS sync_state (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      tool         TEXT    NOT NULL UNIQUE,
+      last_cursor  TEXT,
+      last_synced  TEXT,
+      status       TEXT    NOT NULL DEFAULT 'idle',
+      error_msg    TEXT,
+      updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Connector configuration: pull and push (Phase 5 Final)
+    CREATE TABLE IF NOT EXISTS connector_config (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      name         TEXT    NOT NULL UNIQUE,
+      direction    TEXT    NOT NULL CHECK(direction IN ('pull', 'push')),
+      connector_type TEXT  NOT NULL,
+      config       TEXT    NOT NULL DEFAULT '{}',
+      enabled      INTEGER NOT NULL DEFAULT 1,
+      frequency_sec INTEGER NOT NULL DEFAULT 60,
+      last_run     TEXT,
+      last_status  TEXT,
+      last_error   TEXT,
+      created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
   `);
+
+  // Seed default connector configs if they don't exist
+  const existingCount = (db.prepare('SELECT COUNT(*) as c FROM connector_config').get() as { c: number }).c;
+  if (existingCount === 0) {
+    const seedConnectors = [
+      { name: 'slack-pull', direction: 'pull', connector_type: 'slack', config: '{}', frequency_sec: 60 },
+      { name: 'instagram-pull', direction: 'pull', connector_type: 'instagram', config: '{}', frequency_sec: 60 },
+      { name: 'facebook-pull', direction: 'pull', connector_type: 'facebook', config: '{}', frequency_sec: 60 },
+      { name: 'n8n-push', direction: 'push', connector_type: 'n8n', config: '{}', frequency_sec: 0 },
+      { name: 'make-push', direction: 'push', connector_type: 'make', config: '{}', frequency_sec: 0 },
+      { name: 'custom-webhook-push', direction: 'push', connector_type: 'webhook', config: '{}', frequency_sec: 0 },
+    ];
+    const insert = db.prepare(
+      `INSERT OR IGNORE INTO connector_config (name, direction, connector_type, config, frequency_sec)
+       VALUES (@name, @direction, @connector_type, @config, @frequency_sec)`
+    );
+    for (const row of seedConnectors) insert.run(row);
+  }
 }

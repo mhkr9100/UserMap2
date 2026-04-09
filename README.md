@@ -1,109 +1,192 @@
-# UserMap — The Agentic Data Management Platform (DMP)
+# UserMap — Personal Context OS
 
-> **The Universal Source of Truth** — Connect every device, tool, and workspace once. Let **Prism** structure your world.
+> **AI knows the world. UserMap helps AI know *you*.**
+>
+> General AI can answer "Who is the US president?" because it has access to public data. But it can't answer "What's my career goal?" or "What did I post on Instagram last week?" because it doesn't have *your* data. UserMap is a **Personal Knowledge Permission Layer** for AI — it stores, structures, and controls access to your personal context, locally and privately, so any AI tool can truly know you.
 
-UserMap is a high-performance, local-first Data Management Platform designed to ingest, arrange, and provision personal and enterprise context. It bridges the gap between raw data (Social Archives, Workspaces, Health Apps) and the next generation of AI Agents and automation tools.
+UserMap is a **local-first Personal Context OS** that:
+- Continuously ingests data from your tools (Slack, Instagram, Facebook, etc.)
+- Uses **Prism Agent** to classify and structure everything into your personal knowledge graph
+- Lets you explore and edit your data visually as a **MindMap** in Data Studio
+- Pushes structured context to automation platforms (n8n, Make, custom webhooks)
+- Logs every lifecycle event end-to-end in the **Logs** timeline
 
----
-
-## 💎 The Vision: "Everything, Structured."
-
-Our goal is simple but extensive: A platform where a user connects literally *everything* — from fitness trackers and social media archives to GitHub repos and company Slack channels. 
-
-**Prism**, our resident AI Agent, continuously monitors this incoming data, rearranges it into a semantic knowledge graph, and acts as a **"Context Valve"** for outgoing requests.
-
----
-
-## 🚀 Key Capabilities
-
-### 1. The Prism AI Agent (ReAct)
-Unlike passive databases, UserMap is powered by **Prism**, a ReAct-style agent. Prism doesn't just store data; it reasons about it. It manages your "Private Memory" boundaries and determines what context is relevant for any given task.
-
-### 2. Continuous Structuring (Background Daemon)
-Ingestion isn't a one-time event. UserMap features a background service where Prism "watches" incoming streams (connected apps or uploaded archives) and automatically updates nodes in your knowledge graph.
-*   *Example:* "I just detected a Twitter archive from 2019. Updating 'Interests' and 'Historical Network' clusters."
-
-### 3. The "Context Valve" (Outgoing API)
-UserMap acts as a privacy-preserving proxy for your context. External automation tools (Zapier, Make, custom AI agents) call UserMap to pull context. 
-*   **Selective Filtering**: Prism understands the *intent* of the request and sends ONLY the needed context.
-*   *Example Request:* "Provide context for a LinkedIn message to a Software Engineer."
-*   *Prism Logic:* Prism filters out your health data and private family photos, providing only your technical stack history and recent GitHub activity.
-
-### 4. Local-First Data Sovereignty
-UserMap is an Electron-based desktop application. All data (Social Archives, OAuth tokens, Knowledge Graphs) is stored strictly in your local SQLite database (`~/.usermap/usermap.db`). 
+**No cloud account required. All data stays on your machine.**
 
 ---
 
-## 📂 Feature Roadmap
+## 🚀 Phase 5 Final Features
 
-| Feature Group | Status | Highlights |
-|---|---|---|
-| **Data Ingestion** | ✅ Active | Social Archive (.zip) parsing, Slack, GitHub, Gmail, Local File indexing. |
-| **Prism Agent** | ✅ Active | ReAct thinking loop, Knowledge Graph management, Fact extraction. |
-| **Automation Hub** | ✅ Active | **Context Valve API** (`/api/prism/context`) for external tool integration. |
-| **Structuring** | ✅ Active | Continuous background analysis of ingested context. |
-| **Enterprise RBAC** | 🔜 Planned | CEO/Manager/Employee visibility roles; Admin-controlled data partitions. |
-| **Cross-Device** | 🔜 Planned | Secure peer-to-peer sync between local UserMap instances. |
+### 1. Left Sidebar Navigation
+Full app redesign with persistent left sidebar:
+- **Dashboard** — overview stats, pipeline explanation, recent activity
+- **Context Search** — full-text keyword + filter search across all your data
+- **Data Studio** — MindMap visualization with full CRUD (Tree/Flow/List planned for future)
+- **Connectors** — Pull into UserMap + Push from UserMap (subdivided)
+- **Prism Agent** — Always-on AI pipeline status, chat, resilience controls
+- **Logs** — End-to-end lifecycle event timeline with filters
+- **Docs** — In-app help, setup guides, architecture reference
+
+### 2. Data Studio — MindMap Only (NotebookLM-style)
+Your entire knowledge graph visualized as a radial, interactive MindMap:
+- **Scroll** to zoom, **drag** to pan
+- **Hover** any node to reveal Edit, Add child, and Delete actions
+- **Click** category nodes to expand/collapse branches
+- **Full CRUD**: create categories, edit node labels/values, delete nodes/edges
+- Collapse state **persisted in localStorage** for stable UX across sessions
+- Tree, Flow, and List views are future scope (clearly labeled in UI)
+
+### 3. Logs — End-to-End Lifecycle Timeline
+Every event in your personal context OS is tracked:
+
+| Event Type | Description |
+|---|---|
+| `connector.pull.success` | Data successfully pulled from a source |
+| `connector.pull.error` | Pull failed — check error details |
+| `prism.classify` | Prism classified an item into a category |
+| `prism.structure` | Prism updated the knowledge graph |
+| `prism.feedback.learned` | User edit informed future classification |
+| `user.create/update/delete` | Manual CRUD actions on nodes |
+| `push.webhook.sent/failed` | Push connector delivery results |
+
+**Filters:** event type, actor (system/prism/user), severity, date range, free-text search.
+
+### 4. Connectors — Pull & Push
+**Pull into UserMap:**
+- Slack, Instagram, Facebook — continuous polling (default: every 60s) with checkpoint recovery
+- If interrupted, resumes from last checkpoint — no data loss or double-processing
+
+**Push from UserMap:**
+- n8n, Make (Integromat), Custom Webhook
+- Receives structured JSON payloads on every relevant event
+
+### 5. Multi-DB Architecture
+Polyglot storage pattern for speed + intelligence:
+- **SQLite** (canonical): source of truth — entities, relationships, logs, checkpoints, connector configs
+- **Chroma** (vector DB): semantic embeddings for Prism's context understanding, updated asynchronously
+- **Rule**: write to canonical DB first; vector/cache layers are derived and never source-of-truth
+
+### 6. Prism Agent — Always-On Pipeline
+```
+Data Pull → Prism Reads → Classify → Structure → DB Update → Checkpoint → repeat
+```
+- Resilient: crashes/restarts resume from last checkpoint
+- Deduplication: each source event tracked by unique ID hash
+- Learns from user CRUD: edits in Data Studio feed back into future classifications
 
 ---
 
 ## 🛠 Quick Start
 
-### 1. Install Dependencies
 ```bash
 git clone https://github.com/mhkr9100/UserMap.git
 cd UserMap
 npm install
-```
 
-### 2. Run Local Development
-```bash
+# Run frontend (http://localhost:3000)
 npm run dev
-```
-*   **Desktop UI**: `http://localhost:3000`
-*   **DMP Server (API)**: `http://localhost:5185`
 
-### 3. Connect Your World
-1.  **Social Archives**: Open the **Integrations** panel and drop your Facebook/X/LinkedIn GDPR export (.zip). Prism will begin background structuring.
-2.  **Cloud Tools**: Connect Google, GitHub, and Slack via the Tools menu.
-3.  **Local AI**: Connect [Ollama](https://ollama.com) with one click for a 100% offline agent experience.
-
----
-
-## 🔌 API Reference (The Context Valve)
-
-Automation tools can query the context valve to get "Clean Context":
-
-**POST `/api/prism/context`**
-```json
-{
-  "intent": "Drafting a follow-up email to a developer I met on GitHub",
-  "limit": 5
-}
-```
-
-**Response:**
-```json
-{
-  "prism_status": "REFLECTED",
-  "results": [
-    {
-      "source": "github",
-      "content": "Merged PR #42 in react-usermap...",
-      "relevance_reasoning": "Direct interaction with the subject developer."
-    }
-  ]
-}
+# Run backend API server (http://localhost:5185)
+npm run dev:server
 ```
 
 ---
 
-## 🔒 Security & Privacy
+## 🔌 Connecting Pull Connectors
 
-*   **Zero-Knowledge**: Your API keys and tokens stay in `localStorage`.
-*   **Local Storage**: Data persists in an encrypted SQLite database on your machine.
-*   **Gatekeeping**: Prism is trained to deny "Private Memory" access unless the user provides explicit permission during the ReAct loop.
+### Slack
+1. Create a Slack App at **api.slack.com/apps**
+2. Add OAuth scopes: `channels:read`, `channels:history`, `users:read`
+3. Install to workspace and copy the Bot Token (`xoxb-...`)
+4. In UserMap → **Connectors** → Pull → Slack → **Connect**, paste your token
+
+### Instagram / Facebook
+1. Create a Meta App at **developers.facebook.com**
+2. Add Instagram Basic Display API or Facebook Graph API
+3. Generate a User Access Token with required permissions
+4. In UserMap → **Connectors** → Pull → Instagram/Facebook → **Connect**, paste token
+
+> ⚠️ Meta API requires app review for production access. In development mode, test with your own accounts.
+
+---
+
+## ⚡ Push Webhooks (n8n / Make / Custom)
+
+### n8n
+1. Add a **Webhook** trigger node in n8n, copy the URL
+2. In UserMap → Connectors → Push → n8n → **Connect**, paste webhook URL
+
+### Make (Integromat)
+1. Create a scenario with a **Custom Webhook** module, copy its URL
+2. In UserMap → Connectors → Push → Make → **Connect**, paste URL
+
+### Sample payload
+```json
+POST https://your-endpoint.com/webhook
+{
+  "event": "user.update",
+  "actor": "user",
+  "object": "node:abc123",
+  "summary": "Career node updated",
+  "before": "Software Engineer",
+  "after": "Senior Software Engineer",
+  "timestamp": "2025-01-15T10:30:00.000Z"
+}
+```
+
+---
+
+## 🗄️ Architecture
+
+```
+Browser (React + Vite)
+  └── Left Sidebar (Dashboard / Context Search / Data Studio / Connectors / Prism / Logs / Docs)
+       ├── Data Studio → MindMapView (CRUD on PageNode tree, localStorage collapse)
+       ├── Connectors → Pull (Slack/Instagram/Facebook) | Push (n8n/Make/Webhook)
+       ├── Prism Agent → Always-on pipeline + chat interface
+       └── Logs → Event timeline (connector.pull / prism.classify / user.crud / push.webhook)
+
+Backend (Express + SQLite)  http://localhost:5185
+  ├── /api/connectors   — connector config CRUD, sync trigger
+  ├── /api/logs         — lifecycle event log
+  ├── /api/context      — full-text search over documents
+  ├── /api/prism/context — Prism context valve (intent-based retrieval)
+  └── /api/connections  — OAuth tool connections
+
+Storage
+  ├── SQLite ~/.usermap/usermap.db  — canonical (connections, documents, logs, sync_state, connector_config)
+  └── Chroma (vector DB)            — semantic embeddings, async-updated, never source-of-truth
+```
+
+---
+
+## 📋 Feature Roadmap
+
+| Feature | Status | Notes |
+|---|---|---|
+| MindMap Data Studio (CRUD) | ✅ Phase 5 | NotebookLM-style, collapse/expand, full CRUD |
+| Connectors: Pull (Slack/Instagram/FB) | ✅ Phase 5 | Continuous + checkpoint |
+| Connectors: Push (n8n/Make/Webhook) | ✅ Phase 5 | Structured JSON payloads |
+| Logs: Lifecycle timeline | ✅ Phase 5 | Filters, search, before/after detail |
+| Prism Agent pipeline | ✅ Phase 5 | Always-on, checkpoint-resilient |
+| Multi-DB (SQLite + Chroma) | ✅ Phase 5 | Canonical + async vector |
+| Tree View | 🔜 Future scope | Hierarchical tree visualization |
+| Flow Chart View | 🔜 Future scope | Directed graph visualization |
+| List View | 🔜 Future scope | Tabular data view |
+| Enterprise RBAC | 🔜 Planned | Role-based visibility |
+| Cross-Device Sync | 🔜 Planned | P2P local sync |
+
+---
+
+## 🔒 Privacy & Local-First Design
+
+- **No cloud account**: UserMap requires no sign-up, login, or external auth
+- **All data is local**: SQLite DB lives at `~/.usermap/usermap.db` on your machine
+- **OAuth for tools only**: Slack, GitHub, Gmail use their own OAuth — tokens stay in browser localStorage
+- **Private nodes**: Flag any node as private to exclude it from context exports
+- **No telemetry**: UserMap sends nothing to any external server
 
 ---
 
 Developed with 💜 for the **Quantified Self** and **Agentic Future**.
+

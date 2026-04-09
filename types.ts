@@ -95,3 +95,69 @@ export interface AIChatResponse {
   /** Model name returned by the provider (if available). */
   model?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 5 Final: Logs
+// ---------------------------------------------------------------------------
+
+export type LogActor = 'system' | 'user' | 'prism';
+export type LogSeverity = 'info' | 'warn' | 'error';
+
+export type LogEventType =
+  | 'connector.pull.success'
+  | 'connector.pull.error'
+  | 'connector.sync.triggered'
+  | 'connector.disconnected'
+  | 'prism.classify'
+  | 'prism.structure'
+  | 'prism.feedback.learned'
+  | 'user.create'
+  | 'user.update'
+  | 'user.delete'
+  | 'push.webhook.sent'
+  | 'push.webhook.failed'
+  | string;
+
+export interface LogEvent {
+  id: number;
+  event_type: LogEventType;
+  source_tool?: string;
+  actor: LogActor;
+  object_ref?: string;
+  summary?: string;
+  before_state?: string;
+  after_state?: string;
+  severity: LogSeverity;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5 Final: Connectors
+// ---------------------------------------------------------------------------
+
+export type ConnectorDirection = 'pull' | 'push';
+
+export interface ConnectorConfig {
+  id: number;
+  name: string;
+  direction: ConnectorDirection;
+  connector_type: string;
+  config: Record<string, unknown>;
+  enabled: boolean;
+  frequency_sec: number;
+  last_run?: string;
+  last_status?: string;
+  last_error?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5 Final: MindMap node position metadata
+// ---------------------------------------------------------------------------
+
+export interface MindMapNodeMeta {
+  x?: number;
+  y?: number;
+  collapsed?: boolean;
+}

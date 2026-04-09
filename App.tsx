@@ -1,19 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { LogOut, Moon, Sun, Plug, Bot } from 'lucide-react';
-import { PrismInterface } from './components/PrismInterface';
-import { PrismSetup } from './components/PrismSetup';
+import { Sidebar } from './components/Sidebar';
+import type { SidebarPage } from './components/Sidebar';
+import { DashboardPage } from './components/DashboardPage';
+import { DataStudioPage } from './components/DataStudioPage';
+import { ConnectorsPage } from './components/ConnectorsPage';
+import { PrismAgentPage } from './components/PrismAgentPage';
+import { LogsPage } from './components/LogsPage';
+import { DocsPage } from './components/DocsPage';
+import { ContextSearchView } from './components/ContextSearchView';
 import { ContextImportDialog } from './components/ContextImportDialog';
 import { IntegrationsPanel } from './components/IntegrationsPanel';
+import { PrismSetup } from './components/PrismSetup';
 
-import { UserMapView } from './components/UserMapView';
-import { BrandMark } from './components/icons/BrandMark';
 import { useAuth } from './hooks/useAuth';
 import { useUserMap } from './hooks/useUserMap';
 import { useIntegrations } from './hooks/useIntegrations';
-import { queryContext } from './services/contextQuery';
 import { ADAPTERS } from './services/integrations';
 import { structurerService } from './services/structurerService';
-import type { ToolContextItem } from './types';
 
 
 const App: React.FC = () => {
@@ -29,14 +32,14 @@ const App: React.FC = () => {
   } = useUserMap(currentUser);
   const { integrations } = useIntegrations();
 
+  const [activePage, setActivePage] = useState<SidebarPage>('dashboard');
   const [isMemoryImportOpen, setIsMemoryImportOpen] = useState(false);
   const [isMemoryImporting, setIsMemoryImporting] = useState(false);
   const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false);
-  const [isPrismOpen, setIsPrismOpen] = useState(false);
   const [isPrismSetupVisible, setIsPrismSetupVisible] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) return 'dark';
-    return 'light';
+    try { return (localStorage.getItem('theme') as 'light' | 'dark') || 'light'; } catch { return 'light'; }
   });
 
   useEffect(() => {
@@ -59,8 +62,8 @@ const App: React.FC = () => {
       }
       localStorage.setItem('usermap_seen_memory_import_prompt', 'true');
       setIsMemoryImportOpen(false);
-    } catch (err: any) {
-      alert(`Memory import failed: ${err.message || 'Unknown error'}`);
+    } catch (err: unknown) {
+      alert(`Memory import failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setIsMemoryImporting(false);
     }
@@ -73,11 +76,6 @@ const App: React.FC = () => {
     localStorage.setItem('theme', nextTheme);
   }, [theme]);
 
-  const userLabel = useMemo(() => currentUser?.name || currentUser?.email || 'Architect', [currentUser]);
-  const connectedCount = useMemo(
-    () => integrations.filter((i) => i.status === 'connected').length,
-    [integrations]
-  );
   const connectedAICount = useMemo(() => {
     return integrations.filter((i) => i.isAIAssistant && i.status === 'connected').length;
   }, [integrations]);
@@ -94,10 +92,6 @@ const App: React.FC = () => {
     setIsPrismSetupVisible(false);
   }, []);
 
-  const handleOpenPrism = useCallback(() => {
-    setIsPrismOpen(true);
-  }, []);
-
   // Initialize Continuous Structurer with the first connected AI Assistant
   useEffect(() => {
     const aiAdapterEntry = integrations.find(i => i.isAIAssistant && i.status === 'connected');
@@ -105,22 +99,19 @@ const App: React.FC = () => {
       const adapter = ADAPTERS[aiAdapterEntry.id];
       if (adapter) {
         structurerService.init(adapter, {
-          onSearchMap: async (query) => {
-             // Basic search implementation for background task
-             return `Background search result for: ${query}`;
-          },
-          onReadPrivate: async (id) => ({ allowed: true, data: "Private data accessed by structurer." }),
+          onSearchMap: async (query) => `Background search result for: ${query}`,
+          onReadPrivate: async (_id) => ({ allowed: true, data: "Private data accessed by structurer." }),
           onCreateFact: async (label, value) => {
-              addNode('root', {
-                id: crypto.randomUUID(),
-                label,
-                value,
-                nodeType: 'fact',
-                source: 'Prism Structurer',
-                sourceDate: new Date().toISOString().split('T')[0],
-                children: []
-              });
-              return true;
+            addNode('root', {
+              id: crypto.randomUUID(),
+              label,
+              value,
+              nodeType: 'fact',
+              source: 'Prism Structurer',
+              sourceDate: new Date().toISOString().split('T')[0],
+              children: []
+            });
+            return true;
           },
           onAgentThought: (thought) => console.log("[Prism Structurer]", thought)
         });
@@ -128,69 +119,82 @@ const App: React.FC = () => {
     }
   }, [integrations, addNode]);
 
-
+  const renderPage = () => {
+    switch (activePage) {
+      case 'dashboard':
+        return <DashboardPage tree={userMapTree} onNavigate={setActivePage} />;
+      case 'context-search':
+        return (
+          <div className="flex-1 overflow-y-auto p-6">
+            <ContextSearchView tree={userMapTree} />
+          </div>
+        );
+      case 'data-studio':
+        return (
+          <DataStudioPage
+            tree={userMapTree}
+            onUpdateNode={updateNode}
+            onDeleteNode={deleteNode}
+            onAddNode={addNode}
+          />
+        );
+      case 'connectors':
+        return <ConnectorsPage />;
+      case 'prism-agent':
+        return (
+          <PrismAgentPage
+            tree={userMapTree}
+            onAddNode={addNode}
+            connectedAICount={connectedAICount}
+            onOpenSetup={() => setIsPrismSetupVisible(true)}
+          />
+        );
+      case 'logs':
+        return <LogsPage />;
+      case 'docs':
+        return <DocsPage />;
+      default:
+        return <DashboardPage tree={userMapTree} onNavigate={setActivePage} />;
+    }
+  };
 
   return (
-    <div className="h-screen bg-[#F8F9FA] text-[#1A1A1A] dark:bg-[#1A1A1A] dark:text-[#FFFFFF] transition-colors duration-300 overflow-hidden">
-      <div className="h-full flex flex-col">
-        <header className="h-16 shrink-0 border-b border-black/5 dark:border-white/5 bg-white/70 dark:bg-black/20 backdrop-blur-xl px-6 flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <BrandMark size={28} className="text-gray-900 dark:text-white" />
-            <div className="min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-[0.26em] text-gray-900 dark:text-white">UserMap</div>
-              <div className="text-[10px] text-gray-500 dark:text-white/40 truncate">{userLabel}</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* AI Chat button */}
-            <button
-              onClick={handleOpenPrism}
-              className="h-10 px-3 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.04] text-[10px] font-black uppercase tracking-[0.14em] text-gray-700 dark:text-white/70 flex items-center gap-2"
-              title="Prism Agent"
-            >
-              <Bot size={14} className={connectedAICount > 0 ? 'text-violet-500' : ''} />
-              <span className="hidden sm:inline">Prism</span>
-              {connectedAICount > 0 && (
-                <span className="h-4 min-w-4 px-1 rounded-full bg-violet-500 text-white text-[9px] font-black flex items-center justify-center">
-                  {connectedAICount}
-                </span>
-              )}
-            </button>
-            {/* Connected tools indicator + panel trigger */}
-            <button
-              onClick={() => setIsIntegrationsPanelOpen(true)}
-              className="h-10 px-3 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.04] text-[10px] font-black uppercase tracking-[0.14em] text-gray-700 dark:text-white/70 flex items-center gap-2"
-              title="Connected Tools"
-            >
-              <Plug size={14} />
-              <span className="hidden sm:inline">Tools</span>
-              {connectedCount > 0 && (
-                <span className="h-4 min-w-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center">
-                  {connectedCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={toggleTheme}
-              className="h-10 w-10 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.04] flex items-center justify-center text-gray-600 dark:text-white/60"
-              title="Toggle theme"
-            >
-              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
+    <div className="h-screen bg-[#F8F9FA] text-[#1A1A1A] dark:bg-[#1A1A1A] dark:text-[#FFFFFF] transition-colors duration-300 overflow-hidden flex">
+      {/* Left sidebar */}
+      <Sidebar
+        activePage={activePage}
+        onNavigate={setActivePage}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
 
-          </div>
-        </header>
+      {/* Main content */}
+      <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+        {/* Top action bar */}
+        <div className="h-12 shrink-0 border-b border-black/5 dark:border-white/5 bg-white/50 dark:bg-black/10 backdrop-blur-xl px-4 flex items-center justify-end gap-2">
+          {isConsolidating && (
+            <span className="text-[10px] text-violet-500 font-semibold animate-pulse">Prism consolidating…</span>
+          )}
+          <button
+            onClick={() => setIsIntegrationsPanelOpen(true)}
+            className="h-8 px-3 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.04] text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-600 dark:text-white/50 hover:text-gray-900 dark:hover:text-white/80 transition-colors"
+            title="Manage connected tools"
+          >
+            Tools
+          </button>
+          <button
+            onClick={() => setIsMemoryImportOpen(true)}
+            className="h-8 px-3 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.04] text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-600 dark:text-white/50 hover:text-gray-900 dark:hover:text-white/80 transition-colors"
+          >
+            Import
+          </button>
+        </div>
 
-        <UserMapView
-          tree={userMapTree}
-          isConsolidating={isConsolidating}
-          onUpdateNode={updateNode}
-          onDeleteNode={deleteNode}
-          onAddNode={addNode}
-          onConsolidate={consolidate}
-          onImportContext={() => setIsMemoryImportOpen(true)}
-        />
-      </div>
+        {/* Page content */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {renderPage()}
+        </div>
+      </main>
 
       <ContextImportDialog
         isOpen={isMemoryImportOpen}
@@ -204,14 +208,7 @@ const App: React.FC = () => {
         onClose={() => setIsIntegrationsPanelOpen(false)}
       />
 
-      <PrismInterface
-        isOpen={isPrismOpen}
-        onClose={() => setIsPrismOpen(false)}
-        tree={userMapTree}
-        onAddNode={addNode}
-      />
-
-      <PrismSetup 
+      <PrismSetup
         isOpen={isPrismSetupVisible}
         onComplete={handleCompleteSetup}
       />
