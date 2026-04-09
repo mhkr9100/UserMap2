@@ -90,7 +90,7 @@ const NodeCard: React.FC<NodeCardProps> = ({
 
   const handleAddChild = () => {
     if (!newChildLabel.trim()) return;
-    const id = `node-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const id = crypto.randomUUID();
     onAddNode(node.id, {
       id,
       label: newChildLabel.trim(),

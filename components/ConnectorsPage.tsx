@@ -198,7 +198,7 @@ const ConfigureModal: React.FC<ConfigureModalProps> = ({ connector, onClose, onS
           <button
             onClick={() => {
               const config: Record<string, unknown> = isPull
-                ? { token, frequency_sec: parseInt(freq, 10) }
+                ? { token, frequency_sec: Math.max(30, parseInt(freq, 10) || 60) }
                 : { webhook_url: webhookUrl };
               onSave(connector.id, config);
             }}

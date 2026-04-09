@@ -131,8 +131,8 @@ export function appendLog(record: Omit<LogRecord, 'id' | 'created_at'>): void {
       record.after_state ?? null,
       record.severity ?? 'info',
     );
-  } catch {
-    // Non-critical: swallow log write errors
+  } catch (err) {
+    console.error('[UserMap] appendLog failed:', err instanceof Error ? err.message : err);
   }
 }
 

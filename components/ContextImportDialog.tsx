@@ -6,6 +6,7 @@ interface ContextImportDialogProps {
     isImporting: boolean;
     onSkip: () => void;
     onImport: (rawText: string) => Promise<void>;
+    error?: string | null;
 }
 
 const SAMPLE_IMPORT_PROMPT = `Summarize the reusable context you have learned about me for import into this workspace.
@@ -34,7 +35,8 @@ export const ContextImportDialog: React.FC<ContextImportDialogProps> = ({
     isOpen,
     isImporting,
     onSkip,
-    onImport
+    onImport,
+    error
 }) => {
     const [mode, setMode] = useState<'choice' | 'import'>('choice');
     const [pasted, setPasted] = useState('');
@@ -144,6 +146,11 @@ export const ContextImportDialog: React.FC<ContextImportDialogProps> = ({
                                 {isImporting ? 'Importing...' : 'Add To Workspace'}
                             </button>
                         </div>
+                        {error && (
+                            <div className="rounded-xl border border-red-400/30 bg-red-50 dark:bg-red-500/10 px-4 py-3 text-[12px] text-red-600 dark:text-red-400">
+                                {error}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

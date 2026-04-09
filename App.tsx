@@ -35,6 +35,7 @@ const App: React.FC = () => {
   const [activePage, setActivePage] = useState<SidebarPage>('dashboard');
   const [isMemoryImportOpen, setIsMemoryImportOpen] = useState(false);
   const [isMemoryImporting, setIsMemoryImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false);
   const [isPrismSetupVisible, setIsPrismSetupVisible] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -55,6 +56,7 @@ const App: React.FC = () => {
 
   const handleImportMemory = useCallback(async (rawText: string) => {
     setIsMemoryImporting(true);
+    setImportError(null);
     try {
       const count = await ingestExternalMemory(rawText);
       if (count > 0) {
@@ -63,7 +65,7 @@ const App: React.FC = () => {
       localStorage.setItem('usermap_seen_memory_import_prompt', 'true');
       setIsMemoryImportOpen(false);
     } catch (err: unknown) {
-      alert(`Memory import failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setImportError(`Memory import failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setIsMemoryImporting(false);
     }
@@ -199,6 +201,7 @@ const App: React.FC = () => {
       <ContextImportDialog
         isOpen={isMemoryImportOpen}
         isImporting={isMemoryImporting}
+        error={importError}
         onSkip={handleSkipMemoryImport}
         onImport={handleImportMemory}
       />
