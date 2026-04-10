@@ -1,0 +1,3 @@
+## 2025-04-10 - Dashboard Re-renders
+**Learning:** The Dashboard component calls expensive `countNodes` and `countCategories` functions that traverse the entire graph on every render. Because the component has several independent state pieces (logs, connector counts, summaries) that load asynchronously on mount, it re-renders multiple times unnecessarily, recomputing the same graph metrics.
+**Action:** Always check if expensive O(N) operations inside React components are properly memoized against their dependencies, especially when the component fetches multiple asynchronous pieces of state on mount.
