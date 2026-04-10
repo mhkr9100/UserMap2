@@ -216,3 +216,37 @@ describe('connector_config — AI engines', () => {
     expect(config.api_key).toBe('sk-test-key-placeholder');
   });
 });
+
+describe('prism_sessions / prism_messages — chat persistence', () => {
+  it('tables are created', () => {
+    const sessions = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='prism_sessions'").get();
+    const messages = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='prism_messages'").get();
+    expect(sessions).toBeTruthy();
+    expect(messages).toBeTruthy();
+  });
+
+  it('can create a session and append messages', () => {
+    const res = db.prepare(`INSERT INTO prism_sessions (title) VALUES (?)`).run('Test session');
+    const sessionId = res.lastInsertRowid;
+    expect(sessionId).toBeGreaterThan(0);
+
+    db.prepare(`INSERT INTO prism_messages (session_id, role, content) VALUES (?, ?, ?)`).run(sessionId, 'user', 'Hello Prism');
+    db.prepare(`INSERT INTO prism_messages (session_id, role, content) VALUES (?, ?, ?)`).run(sessionId, 'assistant', 'Hello! How can I help?');
+
+    const msgs = db.prepare('SELECT role, content FROM prism_messages WHERE session_id = ? ORDER BY id ASC').all(sessionId) as Array<{ role: string; content: string }>;
+    expect(msgs).toHaveLength(2);
+    expect(msgs[0].role).toBe('user');
+    expect(msgs[1].role).toBe('assistant');
+  });
+
+  it('cascades deletes: removing a session removes its messages', () => {
+    const res = db.prepare(`INSERT INTO prism_sessions (title) VALUES (?)`).run('Delete cascade test');
+    const sessionId = res.lastInsertRowid;
+    db.prepare(`INSERT INTO prism_messages (session_id, role, content) VALUES (?, ?, ?)`).run(sessionId, 'user', 'msg1');
+
+    db.prepare('DELETE FROM prism_sessions WHERE id = ?').run(sessionId);
+
+    const msgs = db.prepare('SELECT * FROM prism_messages WHERE session_id = ?').all(sessionId);
+    expect(msgs).toHaveLength(0);
+  });
+});

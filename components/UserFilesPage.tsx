@@ -56,7 +56,19 @@ export const UserFilesPage: React.FC = () => {
     setError(null);
     try {
       const res = await fetch('/api/import/jobs');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        // Attempt to read error body; fall back gracefully if it's not JSON
+        const ct = res.headers.get('content-type') ?? '';
+        if (ct.includes('application/json')) {
+          const body = await res.json() as { error?: string };
+          throw new Error(body.error ?? `HTTP ${res.status}`);
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const ct = res.headers.get('content-type') ?? '';
+      if (!ct.includes('application/json')) {
+        throw new Error('Server returned an unexpected response (HTML/plain-text). Is the API server running?');
+      }
       const data = await res.json() as { jobs?: ImportJob[] };
       setJobs(data.jobs ?? []);
     } catch (err: unknown) {

@@ -138,6 +138,23 @@ function initSchema(db: Database.Database): void {
       created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
       updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- Prism chat sessions
+    CREATE TABLE IF NOT EXISTS prism_sessions (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      title        TEXT    NOT NULL DEFAULT 'New conversation',
+      created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Prism chat messages (ordered by id ascending within a session)
+    CREATE TABLE IF NOT EXISTS prism_messages (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id   INTEGER NOT NULL REFERENCES prism_sessions(id) ON DELETE CASCADE,
+      role         TEXT    NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
+      content      TEXT    NOT NULL,
+      created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Seed default connector configs if they don't exist

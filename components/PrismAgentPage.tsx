@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Bot, Zap, CheckCircle, RefreshCw, Send, Loader2, ShieldAlert, ChevronDown } from 'lucide-react';
+import { Bot, Zap, CheckCircle, RefreshCw, Send, Loader2, ShieldAlert, ChevronDown, MessageSquare, Plus, History } from 'lucide-react';
 import type { ChatMessage, IntegrationId, PageNode } from '../types';
 import { useIntegrations, type EnrichedIntegration } from '../hooks/useIntegrations';
 import { ADAPTERS } from '../services/integrations';
@@ -27,6 +27,14 @@ interface PrivacyRequest {
   resolve: (granted: boolean) => void;
 }
 
+interface PrismSession {
+  id: number;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+}
+
 function findNodeById(node: PageNode, id: string): PageNode | null {
   if (node.id === id) return node;
   for (const child of node.children) {
@@ -51,6 +59,13 @@ function naiveSearchMap(node: PageNode, query: string): PageNode[] {
   return results;
 }
 
+/** Derive a short title from the first user message in a conversation. */
+function deriveTitle(msgs: ChatMessage[]): string {
+  const first = msgs.find((m) => m.role === 'user');
+  if (!first) return 'New conversation';
+  return first.content.slice(0, 60) + (first.content.length > 60 ? '…' : '');
+}
+
 export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
   tree,
   onAddNode,
@@ -69,6 +84,12 @@ export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
   const [agentThought, setAgentThought] = useState<string | null>(null);
   const [privacyRequest, setPrivacyRequest] = useState<PrivacyRequest | null>(null);
 
+  // Session persistence state
+  const [sessionId, setSessionId] = useState<number | null>(null);
+  const [sessions, setSessions] = useState<PrismSession[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -86,6 +107,128 @@ export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, agentThought, privacyRequest]);
+
+  // Load session list and restore latest session on mount
+  useEffect(() => {
+    let cancelled = false;
+
+    async function init() {
+      setSessionsLoading(true);
+      try {
+        const res = await fetch('/api/prism/sessions');
+        if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return;
+        const data = await res.json() as { sessions?: PrismSession[] };
+        if (cancelled) return;
+        const list = data.sessions ?? [];
+        setSessions(list);
+
+        // Auto-restore the most recent session if it has messages
+        if (list.length > 0 && list[0].message_count > 0) {
+          await loadSession(list[0].id, cancelled);
+        }
+      } catch {
+        // API server offline — degrade gracefully, no error shown
+      } finally {
+        if (!cancelled) setSessionsLoading(false);
+      }
+    }
+
+    init();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadSession(id: number, cancelled = false) {
+    try {
+      const res = await fetch(`/api/prism/sessions/${id}`);
+      if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return;
+      const data = await res.json() as {
+        session: PrismSession;
+        messages: Array<{ id: number; role: string; content: string }>;
+      };
+      if (cancelled) return;
+
+      const chatHistory: ChatMessage[] = data.messages.map((m) => ({
+        role: m.role as ChatMessage['role'],
+        content: m.content,
+      }));
+
+      const displayMsgs: DisplayMessage[] = data.messages
+        .map((m) => ({
+          id: String(m.id),
+          role: m.role as DisplayMessage['role'],
+          content: m.content,
+          isSystemInternal: m.role === 'system',
+        }))
+        .filter((m) => !m.isSystemInternal || m.content.includes('ACCESS DENIED'));
+
+      setSessionId(id);
+      setHistory(chatHistory);
+      setMessages(displayMsgs);
+    } catch {
+      // silent
+    }
+  }
+
+  async function refreshSessions() {
+    try {
+      const res = await fetch('/api/prism/sessions');
+      if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return;
+      const data = await res.json() as { sessions?: PrismSession[] };
+      setSessions(data.sessions ?? []);
+    } catch {
+      // silent
+    }
+  }
+
+  async function startNewSession() {
+    setMessages([]);
+    setHistory([]);
+    setSessionId(null);
+    setShowHistory(false);
+    inputRef.current?.focus();
+  }
+
+  async function openSession(id: number) {
+    await loadSession(id);
+    setShowHistory(false);
+  }
+
+  /** Persist the current conversation to the backend (fire-and-forget). */
+  async function persistSession(msgs: ChatMessage[]) {
+    try {
+      let sid = sessionId;
+
+      // Create a new session if we don't have one yet
+      if (!sid) {
+        const res = await fetch('/api/prism/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: deriveTitle(msgs) }),
+        });
+        if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return;
+        const data = await res.json() as { session?: { id: number } };
+        sid = data.session?.id ?? null;
+        if (sid) setSessionId(sid);
+      }
+
+      if (!sid) return;
+
+      await fetch(`/api/prism/sessions/${sid}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: msgs,
+          title: deriveTitle(msgs),
+        }),
+      });
+
+      // Refresh session list in background
+      refreshSessions();
+    } catch {
+      // silent — persistence is best-effort
+    }
+  }
 
   const selectedIntegration: EnrichedIntegration | undefined = aiIntegrations.find((i) => i.id === selectedId);
 
@@ -213,6 +356,9 @@ export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
       const newHistory = [...finalMessages];
       setHistory(newHistory);
 
+      // Persist conversation to DB (fire-and-forget)
+      persistSession(newHistory);
+
       // Emit chat.answer log (fire-and-forget)
       const lastAssistantMsg = [...finalMessages].reverse().find((m) => m.role === 'assistant');
       if (lastAssistantMsg) {
@@ -253,7 +399,8 @@ export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
       setAgentThought(null);
       inputRef.current?.focus();
     }
-  }, [input, isSending, selectedId, history, tree, onAddNode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input, isSending, selectedId, history, tree, onAddNode, sessionId]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -265,6 +412,29 @@ export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
         <div className="flex-1 min-w-0">
           <h1 className="text-[14px] font-black text-gray-900 dark:text-white uppercase tracking-widest">Prism Agent</h1>
         </div>
+
+        {/* History button */}
+        <button
+          onClick={() => setShowHistory(!showHistory)}
+          title="Conversation history"
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold transition-colors ${
+            showHistory
+              ? 'bg-violet-500/10 text-violet-600 dark:text-violet-300'
+              : 'text-gray-500 dark:text-white/40 hover:bg-black/5 dark:hover:bg-white/5 hover:text-gray-700 dark:hover:text-white/70'
+          }`}
+        >
+          <History size={13} />
+          {sessionsLoading ? <Loader2 size={11} className="animate-spin" /> : <span>{sessions.length}</span>}
+        </button>
+
+        {/* New chat button */}
+        <button
+          onClick={startNewSession}
+          title="New conversation"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold text-gray-500 dark:text-white/40 hover:bg-black/5 dark:hover:bg-white/5 hover:text-gray-700 dark:hover:text-white/70 transition-colors"
+        >
+          <Plus size={13} />
+        </button>
 
         {/* Status pill */}
         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] font-semibold ${
@@ -286,6 +456,33 @@ export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
           </button>
         )}
       </div>
+
+      {/* Session history panel (slide-in) */}
+      {showHistory && (
+        <div className="shrink-0 border-b border-black/5 dark:border-white/5 max-h-48 overflow-y-auto">
+          {sessions.length === 0 ? (
+            <div className="px-6 py-4 text-[11px] text-gray-400 dark:text-white/30">No saved conversations yet.</div>
+          ) : (
+            <div className="p-2 space-y-0.5">
+              {sessions.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => openSession(s.id)}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-colors ${
+                    s.id === sessionId
+                      ? 'bg-violet-500/10 text-violet-700 dark:text-violet-300'
+                      : 'hover:bg-black/5 dark:hover:bg-white/5 text-gray-700 dark:text-white/70'
+                  }`}
+                >
+                  <MessageSquare size={12} className="shrink-0 text-gray-300 dark:text-white/20" />
+                  <span className="flex-1 truncate text-[11px]">{s.title}</span>
+                  <span className="text-[9px] text-gray-400 dark:text-white/25 shrink-0">{s.message_count} msgs</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {aiIntegrations.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4">

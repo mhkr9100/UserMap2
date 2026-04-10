@@ -260,6 +260,125 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/import/text
+ *
+ * Canonical ingestion pipeline for plain-text content (no file upload required).
+ *
+ * Accepts JSON body:
+ *   - content (required): the text to import
+ *   - filename (optional): display name for the entry (default: "text-import")
+ *   - notes (optional): user guidance / context hints for Prism
+ *
+ * Returns: { job_id, filename, status, document_id, notes, chars_extracted }
+ */
+router.post('/text', async (req: Request, res: Response) => {
+  const { content, filename: rawFilename, notes: rawNotes } = req.body as {
+    content?: string;
+    filename?: string;
+    notes?: string;
+  };
+
+  if (!content || !content.trim()) {
+    return res.status(400).json({ error: 'content is required and must not be empty.' });
+  }
+
+  const safeFilename = (rawFilename?.trim() || 'text-import')
+    .replace(/[^a-zA-Z0-9_\-. ]/g, '_')
+    .slice(0, 255);
+  const notes: string = rawNotes?.trim() ?? '';
+  const db = getDb();
+
+  const jobResult = db.prepare(`
+    INSERT INTO import_jobs (filename, mimetype, size_bytes, notes, status)
+    VALUES (?, 'text/plain', ?, ?, 'received')
+  `).run(safeFilename, Buffer.byteLength(content, 'utf-8'), notes);
+
+  const jobId = jobResult.lastInsertRowid as number;
+
+  appendLog({
+    event_type: 'import.received',
+    source_tool: 'import',
+    actor: 'user',
+    object_ref: `job:${jobId}`,
+    summary: `Text import received: ${safeFilename} (${content.length} chars)`,
+  });
+
+  try {
+    db.prepare(`UPDATE import_jobs SET status='parsing', updated_at=datetime('now') WHERE id=?`).run(jobId);
+
+    appendLog({
+      event_type: 'import.parsed',
+      source_tool: 'import',
+      actor: 'system',
+      object_ref: `job:${jobId}`,
+      summary: `Text import ${safeFilename}: ${content.length} chars`,
+    });
+
+    db.prepare(`UPDATE import_jobs SET status='classifying', updated_at=datetime('now') WHERE id=?`).run(jobId);
+
+    const contentToStore = notes
+      ? `[Import Context Hints]\n${notes}\n\n[Document Content]\n${content}`
+      : content;
+
+    appendLog({
+      event_type: 'prism.classify',
+      source_tool: 'import',
+      actor: 'system',
+      object_ref: `job:${jobId}`,
+      summary: `Classifying text import: ${safeFilename}`,
+    });
+
+    const docResult = db.prepare(`
+      INSERT OR REPLACE INTO documents (tool, doc_id, content, metadata)
+      VALUES ('import', ?, ?, ?)
+    `).run(
+      `job-${jobId}-${safeFilename}`,
+      contentToStore,
+      JSON.stringify({ filename: safeFilename, mimetype: 'text/plain', size: Buffer.byteLength(content, 'utf-8'), notes, job_id: jobId }),
+    );
+
+    const documentId = docResult.lastInsertRowid as number;
+
+    db.prepare(`
+      UPDATE import_jobs SET status='indexed', document_ids=?, updated_at=datetime('now') WHERE id=?
+    `).run(JSON.stringify([documentId]), jobId);
+
+    appendLog({
+      event_type: 'vector.indexed',
+      source_tool: 'import',
+      actor: 'system',
+      object_ref: `doc:${documentId}`,
+      summary: `Text import indexed: ${safeFilename}`,
+    });
+
+    return res.status(201).json({
+      job_id: jobId,
+      filename: safeFilename,
+      status: 'indexed',
+      document_id: documentId,
+      notes,
+      chars_extracted: content.length,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+
+    db.prepare(`UPDATE import_jobs SET status='error', error_msg=?, updated_at=datetime('now') WHERE id=?`)
+      .run(msg, jobId);
+
+    appendLog({
+      event_type: 'error.import',
+      source_tool: 'import',
+      actor: 'system',
+      object_ref: `job:${jobId}`,
+      summary: `Text import failed for ${safeFilename}: ${msg}`,
+      severity: 'error',
+    });
+
+    return res.status(500).json({ error: `Import processing failed: ${msg}`, job_id: jobId });
+  }
+});
+
+/**
  * GET /api/import/jobs
  * List all import jobs (most recent first).
  */
