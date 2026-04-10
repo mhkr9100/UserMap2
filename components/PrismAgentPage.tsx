@@ -169,7 +169,7 @@ export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
     return () => { cancelled = true; };
   }, [loadSession]);
 
-  async function startNewSession() {
+  function startNewSession() {
     setMessages([]);
     setHistory([]);
     setSessionId(null);
