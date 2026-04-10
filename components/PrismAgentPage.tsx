@@ -108,37 +108,7 @@ export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
     }
   }, [messages, agentThought, privacyRequest]);
 
-  // Load session list and restore latest session on mount
-  useEffect(() => {
-    let cancelled = false;
-
-    async function init() {
-      setSessionsLoading(true);
-      try {
-        const res = await fetch('/api/prism/sessions');
-        if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return;
-        const data = await res.json() as { sessions?: PrismSession[] };
-        if (cancelled) return;
-        const list = data.sessions ?? [];
-        setSessions(list);
-
-        // Auto-restore the most recent session if it has messages
-        if (list.length > 0 && list[0].message_count > 0) {
-          await loadSession(list[0].id, cancelled);
-        }
-      } catch {
-        // API server offline — degrade gracefully, no error shown
-      } finally {
-        if (!cancelled) setSessionsLoading(false);
-      }
-    }
-
-    init();
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function loadSession(id: number, cancelled = false) {
+  const loadSession = useCallback(async (id: number, cancelled = false) => {
     try {
       const res = await fetch(`/api/prism/sessions/${id}`);
       if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return;
@@ -168,18 +138,36 @@ export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
     } catch {
       // silent
     }
-  }
+  }, []);
 
-  async function refreshSessions() {
-    try {
-      const res = await fetch('/api/prism/sessions');
-      if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return;
-      const data = await res.json() as { sessions?: PrismSession[] };
-      setSessions(data.sessions ?? []);
-    } catch {
-      // silent
+  // Load session list and restore latest session on mount
+  useEffect(() => {
+    let cancelled = false;
+
+    async function init() {
+      setSessionsLoading(true);
+      try {
+        const res = await fetch('/api/prism/sessions');
+        if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return;
+        const data = await res.json() as { sessions?: PrismSession[] };
+        if (cancelled) return;
+        const list = data.sessions ?? [];
+        setSessions(list);
+
+        // Auto-restore the most recent session if it has messages
+        if (list.length > 0 && list[0].message_count > 0) {
+          await loadSession(list[0].id, cancelled);
+        }
+      } catch {
+        // API server offline — degrade gracefully, no error shown
+      } finally {
+        if (!cancelled) setSessionsLoading(false);
+      }
     }
-  }
+
+    init();
+    return () => { cancelled = true; };
+  }, [loadSession]);
 
   async function startNewSession() {
     setMessages([]);
@@ -194,8 +182,20 @@ export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
     setShowHistory(false);
   }
 
+  /** Refresh the sessions list from the backend (best-effort). */
+  const refreshSessions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/prism/sessions');
+      if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return;
+      const data = await res.json() as { sessions?: PrismSession[] };
+      setSessions(data.sessions ?? []);
+    } catch {
+      // silent
+    }
+  }, []);
+
   /** Persist the current conversation to the backend (fire-and-forget). */
-  async function persistSession(msgs: ChatMessage[]) {
+  const persistSession = useCallback(async (msgs: ChatMessage[]) => {
     try {
       let sid = sessionId;
 
@@ -228,7 +228,7 @@ export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
     } catch {
       // silent — persistence is best-effort
     }
-  }
+  }, [sessionId, refreshSessions]);
 
   const selectedIntegration: EnrichedIntegration | undefined = aiIntegrations.find((i) => i.id === selectedId);
 
@@ -399,8 +399,7 @@ export const PrismAgentPage: React.FC<PrismAgentPageProps> = ({
       setAgentThought(null);
       inputRef.current?.focus();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input, isSending, selectedId, history, tree, onAddNode, sessionId]);
+  }, [input, isSending, selectedId, history, tree, onAddNode, persistSession]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
