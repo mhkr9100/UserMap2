@@ -1,0 +1,3 @@
+## 2025-05-18 - Memoize Expensive Visualisation Calculations
+**Learning:** For React visualizations in UserMap (e.g., FlowChartView), expensive tree layout computations (like `buildGraph`) and data mapping (`nodeMap`) cause costly O(N) recalculations on every render. Because local state updates are extremely frequent during panning or zooming interactions, this leads to significant main thread blocking and jank.
+**Action:** Always memoize expensive layout computations with `useMemo` when they depend only on slowly-changing props (like `tree`), to avoid recalculations during rapid local interaction state updates (like `pan` and `zoom`).

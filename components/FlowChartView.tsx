@@ -6,7 +6,7 @@
  * graph.  Supports mouse-drag panning and scroll-wheel zoom.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { PageNode } from '../types';
 
 interface FlowChartViewProps {
@@ -95,7 +95,9 @@ function nodeColor(nodeType?: string): { fill: string; stroke: string; text: str
 }
 
 export const FlowChartView: React.FC<FlowChartViewProps> = ({ tree }) => {
-    const { nodes, edges } = buildGraph(tree);
+    // Memoize the expensive graph building operation so it doesn't recalculate
+    // on every pan/zoom render.
+    const { nodes, edges } = useMemo(() => buildGraph(tree), [tree]);
 
     const svgRef = useRef<SVGSVGElement>(null);
     const [pan, setPan] = useState({ x: 20, y: 20 });
@@ -103,8 +105,8 @@ export const FlowChartView: React.FC<FlowChartViewProps> = ({ tree }) => {
     const dragging = useRef(false);
     const lastMouse = useRef({ x: 0, y: 0 });
 
-    // Build a lookup map for edge drawing.
-    const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+    // Build a lookup map for edge drawing, also memoized.
+    const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
     const onMouseDown = useCallback((e: React.MouseEvent) => {
         dragging.current = true;
