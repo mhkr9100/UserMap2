@@ -137,6 +137,7 @@ export const LogsPage: React.FC = () => {
           </div>
           <button
             onClick={fetchLogs}
+            aria-label="Refresh logs"
             className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-black/10 dark:border-white/10 text-[11px] text-gray-600 dark:text-white/50 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
           >
             <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />

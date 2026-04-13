@@ -215,7 +215,7 @@ export const PrismInterface: React.FC<PrismInterfaceProps> = ({ isOpen, onClose,
                                     <div className="text-[10px] text-gray-500 dark:text-white/40">Autonomous Context Engineer</div>
                                 </div>
                             </div>
-                            <button onClick={onClose} className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-900 transition-colors">
+                            <button onClick={onClose} aria-label="Close" className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-900 transition-colors">
                                 <X size={14} />
                             </button>
                         </div>
@@ -294,7 +294,7 @@ export const PrismInterface: React.FC<PrismInterfaceProps> = ({ isOpen, onClose,
                                         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                                         placeholder="Ask Prism to query or update data..." disabled={isSending || !!privacyRequest}
                                         className="flex-1 rounded-xl bg-gray-50 dark:bg-black/20 text-[12px] p-3 text-gray-800 dark:text-white resize-none outline-none dark:border-white/10 border" rows={1} />
-                                    <button onClick={handleSend} disabled={isSending || !input.trim() || !!privacyRequest} className="w-10 rounded-xl bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center disabled:opacity-40">
+                                    <button onClick={handleSend} aria-label="Send message" disabled={isSending || !input.trim() || !!privacyRequest} className="w-10 rounded-xl bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center disabled:opacity-40">
                                             <Send size={14} />
                                     </button>
                                 </div>

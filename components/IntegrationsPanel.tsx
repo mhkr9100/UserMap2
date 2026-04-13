@@ -304,7 +304,7 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ isOpen, on
                                         onClick={() => { setPatInputId(integration.id); setInputValue(''); clearError(integration.id); }}
                                         disabled={isBusy}
                                         className="h-9 px-3 rounded-xl border border-black/10 dark:border-white/10 text-gray-600 dark:text-white/60 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em] disabled:opacity-50"
-                                        title="Use a Personal Access Token instead"
+                                        title="Use a Personal Access Token instead" aria-label="Use a Personal Access Token instead"
                                     >
                                         <KeyRound size={12} />
                                         PAT
@@ -362,7 +362,7 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ isOpen, on
                             <button
                                 onClick={onClose}
                                 className="h-8 w-8 rounded-lg border border-black/10 dark:border-white/10 flex items-center justify-center text-gray-500 dark:text-white/40 hover:text-gray-900 dark:hover:text-white transition-colors"
-                                title="Close"
+                                title="Close" aria-label="Close"
                             >
                                 <X size={14} />
                             </button>

@@ -147,7 +147,7 @@ const ConfigureModal: React.FC<ConfigureModalProps> = ({ connector, onClose, onS
             <h2 className="text-[14px] font-black text-gray-900 dark:text-white">Configure {meta.label}</h2>
             <p className="text-[11px] text-gray-400 dark:text-white/30">{isPull ? 'Pull connector' : 'Push connector'}</p>
           </div>
-          <button onClick={onClose} className="ml-auto text-gray-400 hover:text-gray-700 dark:hover:text-white"><X size={16} /></button>
+          <button onClick={onClose} aria-label="Close" className="ml-auto text-gray-400 hover:text-gray-700 dark:hover:text-white"><X size={16} /></button>
         </div>
 
         {isPull ? (
@@ -439,7 +439,7 @@ const CustomApisSection: React.FC = () => {
                 <div className="text-[12px] font-semibold text-gray-800 dark:text-white">{api.name}</div>
                 <div className="text-[10px] text-gray-400 dark:text-white/30">{api.method} {api.url} · {api.direction}</div>
               </div>
-              <button onClick={() => api.id != null && handleDelete(api.id)} className="text-red-400 hover:text-red-600 transition-colors" disabled={api.id == null}>
+              <button onClick={() => api.id != null && handleDelete(api.id)} aria-label="Delete API" className="text-red-400 hover:text-red-600 transition-colors" disabled={api.id == null}>
                 <Trash2 size={13} />
               </button>
             </div>

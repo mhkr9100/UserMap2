@@ -137,7 +137,7 @@ const ImportPanel: React.FC<{
         <div className="flex items-center gap-3">
           <Upload size={16} className="text-violet-500" />
           <h2 className="text-[14px] font-black text-gray-900 dark:text-white uppercase tracking-widest">Import</h2>
-          <button onClick={onClose} className="ml-auto text-gray-400 hover:text-gray-700 dark:hover:text-white">
+          <button onClick={onClose} aria-label="Close" className="ml-auto text-gray-400 hover:text-gray-700 dark:hover:text-white">
             <X size={16} />
           </button>
         </div>
