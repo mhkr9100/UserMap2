@@ -1,0 +1,3 @@
+## 2025-04-14 - Missing ARIA Labels on Interactive Visualization Controls
+**Learning:** Data visualization components (like MindMaps and Graph views) heavily rely on icon-only buttons for complex interactivity (zoom, pan, node CRUD). These bespoke UI patterns frequently lack essential `aria-label`s, rendering the core navigation and editing experience opaque to screen reader users despite the app's overall structure.
+**Action:** Always verify accessibility specifically within custom interactive canvases and visualization layers, prioritizing `aria-label`s for all floating action buttons, node controls, and zoom/pan toolbars.
