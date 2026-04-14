@@ -250,3 +250,218 @@ describe('prism_sessions / prism_messages — chat persistence', () => {
     expect(msgs).toHaveLength(0);
   });
 });
+
+// =============================================================================
+// MemPalace Migration — Prism Memory Extractor v2 tests
+// =============================================================================
+
+import {
+  extractMemories,
+  contentHash,
+  jaccardSimilarity,
+  detectConflict,
+} from './apps/server/src/services/prismMemoryExtractor.ts';
+
+describe('prismMemoryExtractor — extraction logic', () => {
+  it('extracts a decision from text mentioning "because"', () => {
+    const text = 'We decided to use PostgreSQL because it has better JSON support than MySQL.';
+    const memories = extractMemories(text);
+    expect(memories.length).toBeGreaterThan(0);
+    const decision = memories.find((m) => m.category === 'decision');
+    expect(decision).toBeTruthy();
+    expect(decision!.confidence).toBeGreaterThan(0);
+    expect(decision!.dedup_hash).toHaveLength(64); // SHA-256 hex
+  });
+
+  it('extracts a preference from text mentioning "I prefer"', () => {
+    const text = 'I prefer TypeScript over JavaScript for all new projects. Always use strict mode.';
+    const memories = extractMemories(text);
+    expect(memories.length).toBeGreaterThan(0);
+    const pref = memories.find((m) => m.category === 'preference');
+    expect(pref).toBeTruthy();
+  });
+
+  it('extracts a milestone from text mentioning "finally" + "fixed"', () => {
+    const text = 'Finally got the authentication working. The bug was a CORS misconfiguration. Fixed it by adding the right headers.';
+    const memories = extractMemories(text);
+    expect(memories.length).toBeGreaterThan(0);
+    // Should be classified as milestone (resolved problem → milestone via disambiguation)
+    const milestone = memories.find((m) => m.category === 'milestone');
+    expect(milestone).toBeTruthy();
+  });
+
+  it('extracts a problem from text describing a bug without resolution', () => {
+    const text = 'The payment system keeps failing. The root cause is unknown. We cannot reproduce it in staging.';
+    const memories = extractMemories(text);
+    expect(memories.length).toBeGreaterThan(0);
+    const problem = memories.find((m) => m.category === 'problem');
+    expect(problem).toBeTruthy();
+  });
+
+  it('assigns confidence 0.0–1.0', () => {
+    const text = 'We decided to use React because it has a great ecosystem. We always prefer functional components.';
+    const memories = extractMemories(text);
+    for (const m of memories) {
+      expect(m.confidence).toBeGreaterThanOrEqual(0);
+      expect(m.confidence).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('skips segments shorter than 20 characters', () => {
+    const memories = extractMemories('Short.');
+    expect(memories).toHaveLength(0);
+  });
+
+  it('skips segments below minConfidence threshold', () => {
+    // Very sparse text with only one faint marker → should not meet default threshold
+    const memories = extractMemories('The', 0.9);
+    expect(memories).toHaveLength(0);
+  });
+
+  it('splits on double newlines (paragraph mode)', () => {
+    const text = [
+      'We decided to use GraphQL because it reduces over-fetching.',
+      'I prefer snake_case for Python code always.',
+      'The bug was caused by a race condition in the async handler.',
+    ].join('\n\n');
+    const memories = extractMemories(text);
+    // Should produce at least 2 distinct memory units
+    expect(memories.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('prismMemoryExtractor — content hash and dedup', () => {
+  it('contentHash returns 64-char hex string', () => {
+    const h = contentHash('hello world');
+    expect(h).toHaveLength(64);
+    expect(h).toMatch(/^[0-9a-f]+$/);
+  });
+
+  it('contentHash is stable (same input → same output)', () => {
+    const a = contentHash('  Hello World  ');
+    const b = contentHash('hello world'); // normalised: lowercase, trimmed
+    expect(a).toBe(b);
+  });
+
+  it('contentHash differs for different inputs', () => {
+    const a = contentHash('hello world');
+    const b = contentHash('goodbye world');
+    expect(a).not.toBe(b);
+  });
+
+  it('jaccardSimilarity returns 1.0 for identical strings', () => {
+    expect(jaccardSimilarity('hello world test', 'hello world test')).toBe(1.0);
+  });
+
+  it('jaccardSimilarity returns 0.0 for completely different strings', () => {
+    expect(jaccardSimilarity('alpha beta gamma', 'delta epsilon zeta')).toBe(0.0);
+  });
+
+  it('jaccardSimilarity returns value between 0 and 1 for partial overlap', () => {
+    const sim = jaccardSimilarity('we use PostgreSQL for the database', 'we should use MySQL for the database');
+    expect(sim).toBeGreaterThan(0);
+    expect(sim).toBeLessThan(1);
+  });
+});
+
+describe('prismMemoryExtractor — conflict detection', () => {
+  it('detects conflict when one memory negates the other with high overlap', () => {
+    const conflict = detectConflict(
+      'We always use TypeScript for new projects.',
+      'We never use TypeScript for new projects.',
+      'preference',
+      'preference'
+    );
+    expect(conflict).toBe(true);
+  });
+
+  it('does not flag conflict for different categories', () => {
+    const conflict = detectConflict(
+      'We always use TypeScript.',
+      'We never use TypeScript.',
+      'preference',
+      'decision'
+    );
+    expect(conflict).toBe(false);
+  });
+
+  it('does not flag conflict for unrelated content', () => {
+    const conflict = detectConflict(
+      'The sky is blue.',
+      'We prefer PostgreSQL over MySQL.',
+      'decision',
+      'decision'
+    );
+    expect(conflict).toBe(false);
+  });
+});
+
+describe('prism_memory_units — DB schema and FTS', () => {
+  it('prism_memory_units table exists', () => {
+    const row = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='prism_memory_units'"
+    ).get();
+    expect(row).toBeTruthy();
+  });
+
+  it('memory_units_fts virtual table exists', () => {
+    const row = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='memory_units_fts'"
+    ).get();
+    expect(row).toBeTruthy();
+  });
+
+  it('can insert a memory unit and retrieve via FTS', () => {
+    db.prepare(`
+      INSERT INTO prism_memory_units
+        (content, category, confidence, source_tool, provenance, dedup_hash)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      'We decided to adopt MemPalace architecture for the extraction pipeline',
+      'decision',
+      0.8,
+      'test',
+      '{}',
+      contentHash('We decided to adopt MemPalace architecture for the extraction pipeline'),
+    );
+
+    let rows: Array<{ content: string; category: string }> = [];
+    try {
+      rows = db.prepare(`
+        SELECT m.content, m.category
+        FROM memory_units_fts fts
+        JOIN prism_memory_units m ON m.id = fts.rowid
+        WHERE memory_units_fts MATCH ?
+        LIMIT 5
+      `).all('MemPalace') as typeof rows;
+    } catch {
+      rows = [];
+    }
+
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows[0].category).toBe('decision');
+    expect(rows[0].content).toContain('MemPalace');
+  });
+
+  it('conflict_flag defaults to 0 (no conflict)', () => {
+    const result = db.prepare(`
+      INSERT INTO prism_memory_units (content, category, confidence, source_tool, provenance, dedup_hash)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run('Test memory unit', 'general', 0.5, 'test', '{}', contentHash('Test memory unit'));
+
+    const row = db.prepare('SELECT conflict_flag, conflict_with FROM prism_memory_units WHERE id = ?')
+      .get(result.lastInsertRowid) as { conflict_flag: number; conflict_with: string };
+    expect(row.conflict_flag).toBe(0);
+    expect(JSON.parse(row.conflict_with)).toEqual([]);
+  });
+
+  it('category CHECK constraint rejects invalid category', () => {
+    expect(() => {
+      db.prepare(`
+        INSERT INTO prism_memory_units (content, category, confidence, source_tool, provenance, dedup_hash)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run('bad cat', 'invalid_category', 0.5, 'test', '{}', 'abc');
+    }).toThrow();
+  });
+});
+

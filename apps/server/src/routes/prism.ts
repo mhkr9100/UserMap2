@@ -48,11 +48,14 @@ router.get('/health', (_req: Request, res: Response) => {
 /**
  * POST /api/prism/context
  *
- * Retrieves real context records matching the given intent using full-text search.
- * Does not apply heuristic filters or fabricate results.
+ * Retrieves real context records matching the given intent.
+ * Search strategy (MemPalace-inspired 4-layer approach):
+ *   1. L3 Deep Search: FTS over prism_memory_units (structured, categorised memories)
+ *   2. L3 Fallback: FTS over raw documents (verbatim content store)
+ * Results from both layers are merged (memory units ranked first).
  *
  * Request: { intent: string }
- * Response: { intent, results: Array<{ source, content }>, total }
+ * Response: { intent, results: Array<{ source, content, category?, confidence? }>, total }
  */
 router.post('/context', async (req: Request, res: Response) => {
   const { intent } = req.body as { intent?: string };
@@ -62,31 +65,60 @@ router.post('/context', async (req: Request, res: Response) => {
   }
 
   const db = getDb();
+  const query = intent.trim();
 
-  // Full-text search against real documents
-  let rows: Array<{ content: string; tool: string; metadata: string }> = [];
+  // Layer 1: Search structured memory units (Prism Memory Extractor v2 output)
+  let memoryRows: Array<{ content: string; category: string; confidence: number; source_tool: string }> = [];
   try {
-    rows = db
+    memoryRows = db
+      .prepare(
+        `SELECT m.content, m.category, m.confidence, m.source_tool
+         FROM memory_units_fts fts
+         JOIN prism_memory_units m ON m.id = fts.rowid
+         WHERE memory_units_fts MATCH ?
+         LIMIT 8`
+      )
+      .all(query) as typeof memoryRows;
+  } catch {
+    memoryRows = [];
+  }
+
+  // Layer 2: Full-text search against raw documents (verbatim store)
+  let docRows: Array<{ content: string; tool: string; metadata: string }> = [];
+  try {
+    docRows = db
       .prepare(
         `SELECT d.content, d.tool, d.metadata
          FROM documents_fts fts
          JOIN documents d ON d.id = fts.rowid
          WHERE documents_fts MATCH ?
-         LIMIT 10`
+         LIMIT 6`
       )
-      .all(intent.trim()) as typeof rows;
+      .all(query) as typeof docRows;
   } catch {
-    // FTS match error (e.g. special characters) — return empty truthfully
-    rows = [];
+    docRows = [];
   }
 
-  return res.json({
-    intent: intent.trim(),
-    results: rows.map((r) => ({
+  // Merge: memory units first (higher signal), then raw doc chunks
+  const results = [
+    ...memoryRows.map((r) => ({
+      source: r.source_tool,
+      content: r.content,
+      category: r.category,
+      confidence: r.confidence,
+    })),
+    ...docRows.map((r) => ({
       source: r.tool,
       content: r.content,
+      category: undefined as string | undefined,
+      confidence: undefined as number | undefined,
     })),
-    total: rows.length,
+  ].slice(0, 10);
+
+  return res.json({
+    intent: query,
+    results,
+    total: results.length,
   });
 });
 

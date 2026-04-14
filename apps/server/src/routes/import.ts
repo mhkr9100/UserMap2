@@ -5,6 +5,8 @@ import os from 'os';
 import fs from 'fs';
 import { getDb } from '../db/index.js';
 import { appendLog } from './logs.js';
+import { extractMemories } from '../services/prismMemoryExtractor.js';
+import { persistMemoryUnit } from './prism-memories.js';
 
 const router = Router();
 
@@ -216,7 +218,40 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       summary: `Persisted import document to canonical DB (doc id: ${documentId})`,
     });
 
-    // 5. Mark job indexed and update document_ids
+    // 5. Prism Memory Extraction v2 (MemPalace-inspired)
+    // Extract structured memory units from the imported content and persist them.
+    // Each unit is categorised (decision, preference, milestone, problem, emotional),
+    // deduplicated (exact hash + Jaccard near-dup), and conflict-flagged.
+    const memories = extractMemories(contentToStore);
+    let memoriesPersisted = 0;
+    let memoriesDuplicates = 0;
+    let memoriesConflicts = 0;
+    for (const mem of memories) {
+      const mid = persistMemoryUnit(
+        mem.content,
+        mem.category,
+        mem.confidence,
+        { source_tool: 'import', source_doc_id: documentId, source_ref: `job:${jobId}`, filename: safeOriginalName, job_id: jobId }
+      );
+      if (mid === null) {
+        memoriesDuplicates++;
+      } else {
+        memoriesPersisted++;
+        const mrow = db.prepare('SELECT conflict_flag FROM prism_memory_units WHERE id = ?')
+          .get(mid) as { conflict_flag: number } | undefined;
+        if (mrow?.conflict_flag) memoriesConflicts++;
+      }
+    }
+
+    appendLog({
+      event_type: 'prism.extract',
+      source_tool: 'import',
+      actor: 'system',
+      object_ref: `doc:${documentId}`,
+      summary: `Prism extracted ${memories.length} memories from ${safeOriginalName}: ${memoriesPersisted} new, ${memoriesDuplicates} duplicate, ${memoriesConflicts} conflict`,
+    });
+
+    // 6. Mark job indexed and update document_ids
     db.prepare(`
       UPDATE import_jobs SET status='indexed', document_ids=?, updated_at=datetime('now') WHERE id=?
     `).run(JSON.stringify([documentId]), jobId);
@@ -236,6 +271,10 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       document_id: documentId,
       notes,
       chars_extracted: extractedText.length,
+      memories_extracted: memories.length,
+      memories_persisted: memoriesPersisted,
+      memories_duplicates: memoriesDuplicates,
+      memories_conflicts: memoriesConflicts,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -339,6 +378,36 @@ router.post('/text', async (req: Request, res: Response) => {
 
     const documentId = docResult.lastInsertRowid as number;
 
+    // Prism Memory Extraction v2 (MemPalace-inspired)
+    const memories = extractMemories(contentToStore);
+    let memoriesPersisted = 0;
+    let memoriesDuplicates = 0;
+    let memoriesConflicts = 0;
+    for (const mem of memories) {
+      const mid = persistMemoryUnit(
+        mem.content,
+        mem.category,
+        mem.confidence,
+        { source_tool: 'import', source_doc_id: documentId, source_ref: `job:${jobId}`, filename: safeFilename, job_id: jobId }
+      );
+      if (mid === null) {
+        memoriesDuplicates++;
+      } else {
+        memoriesPersisted++;
+        const mrow = db.prepare('SELECT conflict_flag FROM prism_memory_units WHERE id = ?')
+          .get(mid) as { conflict_flag: number } | undefined;
+        if (mrow?.conflict_flag) memoriesConflicts++;
+      }
+    }
+
+    appendLog({
+      event_type: 'prism.extract',
+      source_tool: 'import',
+      actor: 'system',
+      object_ref: `doc:${documentId}`,
+      summary: `Prism extracted ${memories.length} memories from ${safeFilename}: ${memoriesPersisted} new, ${memoriesDuplicates} duplicate, ${memoriesConflicts} conflict`,
+    });
+
     db.prepare(`
       UPDATE import_jobs SET status='indexed', document_ids=?, updated_at=datetime('now') WHERE id=?
     `).run(JSON.stringify([documentId]), jobId);
@@ -358,6 +427,10 @@ router.post('/text', async (req: Request, res: Response) => {
       document_id: documentId,
       notes,
       chars_extracted: content.length,
+      memories_extracted: memories.length,
+      memories_persisted: memoriesPersisted,
+      memories_duplicates: memoriesDuplicates,
+      memories_conflicts: memoriesConflicts,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

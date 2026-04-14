@@ -74,6 +74,57 @@ Data Pull → Prism Reads → Classify → Structure → DB Update → Checkpoin
 - Deduplication: each source event tracked by unique ID hash
 - Learns from user CRUD: edits in Data Studio feed back into future classifications
 
+### 7. Prism Memory Extractor v2 (MemPalace-inspired)
+
+Replaces the previous stub extraction path with a full structured memory pipeline.
+
+**Architecture mapping (MemPalace → UserMap):**
+
+| MemPalace concept | UserMap equivalent |
+|---|---|
+| Wings | Prism Nodes (top-level knowledge areas) |
+| Halls | Memory Categories (decision, preference, milestone, problem, emotional) |
+| Rooms | Topics within a node |
+| Drawers | Memory Units (rows in `prism_memory_units`) |
+| L3 Deep Search | FTS over `memory_units_fts` |
+
+**Memory categories (5 types, pattern-based — no LLM required):**
+
+| Category | Trigger patterns |
+|---|---|
+| `decision` | "we decided", "because", "instead of", "architecture", "stack" |
+| `preference` | "I prefer", "always use", "never use", "my rule is" |
+| `milestone` | "finally", "it works", "shipped", "built", "breakthrough" |
+| `problem` | "bug", "error", "doesn't work", "root cause", "workaround" |
+| `emotional` | "love", "proud", "grateful", "I feel", "I wish" |
+
+**Pipeline (canonical, no bypass):**
+```
+Input → parse → extractMemories() → dedup check → conflict check → prism_memory_units → FTS index → log
+```
+
+**Deduplication:**
+- Exact: SHA-256 hash of normalised content — skips if already stored
+- Near-duplicate: Jaccard similarity over 3+ character words — skips if ≥ 85% similar
+
+**Conflict detection:**
+- Two memories of the same category with high overlap but opposing negation are flagged
+- Both sides are marked with `conflict_flag=1` and `conflict_with` arrays
+- Neither is silently discarded — the user resolves conflicts
+
+**API endpoints:**
+- `GET /api/prism/memories` — list all memory units (filter by category, source_tool, conflict)
+- `GET /api/prism/memories?q=<query>` — FTS deep search (MemPalace L3-style)
+- `POST /api/prism/extract` — extract memories from text and persist
+- `GET /api/prism/memories/:id` — get single memory unit with provenance
+- `PATCH /api/prism/memories/:id` — update node_label, topic, resolve conflict
+- `DELETE /api/prism/memories/:id` — delete a memory unit
+
+**Context retrieval upgrade (`POST /api/prism/context`):**
+1. Searches `prism_memory_units` via FTS (structured, categorised memories) — higher signal
+2. Falls back to raw `documents_fts` (verbatim store) — broad coverage
+3. Returns merged results with category and confidence metadata
+
 ---
 
 ## 🛠 Quick Start
@@ -147,15 +198,27 @@ Browser (React + Vite)
        └── Logs → Event timeline (connector.pull / prism.classify / user.crud / push.webhook)
 
 Backend (Express + SQLite)  http://localhost:5185
-  ├── /api/connectors   — connector config CRUD, sync trigger
-  ├── /api/logs         — lifecycle event log
-  ├── /api/context      — full-text search over documents
-  ├── /api/prism/context — Prism context valve (intent-based retrieval)
-  └── /api/connections  — OAuth tool connections
+  ├── /api/connectors        — connector config CRUD, sync trigger
+  ├── /api/logs              — lifecycle event log
+  ├── /api/context           — full-text search over documents
+  ├── /api/prism/context     — Prism context retrieval (memory units + documents)
+  ├── /api/prism/memories    — Prism Memory Units CRUD + FTS search
+  ├── /api/prism/extract     — Extract memories from text → prism_memory_units
+  ├── /api/import            — File/text ingestion pipeline → extraction → indexed
+  └── /api/connections       — OAuth tool connections
 
 Storage
-  ├── SQLite ~/.usermap/usermap.db  — canonical (connections, documents, logs, sync_state, connector_config)
-  └── Chroma (vector DB)            — semantic embeddings, async-updated, never source-of-truth
+  ├── SQLite ~/.usermap/usermap.db
+  │     ├── documents          — verbatim imported content
+  │     ├── documents_fts      — full-text search index
+  │     ├── prism_memory_units — structured extracted memories (MemPalace-inspired)
+  │     ├── memory_units_fts   — FTS index for memory units (L3 deep search)
+  │     ├── logs               — lifecycle event log
+  │     ├── import_jobs        — ingestion job state machine
+  │     ├── connector_config   — pull/push/ai engine configs
+  │     ├── prism_sessions     — chat session persistence
+  │     └── prism_messages     — chat message history
+  └── (future: vector DB for dense semantic embeddings — optional, never source-of-truth)
 ```
 
 ---

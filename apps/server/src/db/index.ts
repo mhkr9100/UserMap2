@@ -155,6 +155,67 @@ function initSchema(db: Database.Database): void {
       content      TEXT    NOT NULL,
       created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- -----------------------------------------------------------------------
+    -- Prism Memory Units (MemPalace-inspired extraction — v2)
+    --
+    -- Each row is a structured memory unit extracted from an imported document
+    -- or connector payload. A single source document may yield many units.
+    --
+    -- Terminology mapping (MemPalace → UserMap):
+    --   Wing/Hall → category  (decision | preference | milestone | problem | emotional | general)
+    --   Room      → topic     (free-text subtopic label inferred or user-assigned)
+    --   Drawer    → this row  (verbatim content chunk)
+    -- -----------------------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS prism_memory_units (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      content        TEXT    NOT NULL,
+      category       TEXT    NOT NULL DEFAULT 'general'
+                             CHECK(category IN ('decision','preference','milestone','problem','emotional','general')),
+      confidence     REAL    NOT NULL DEFAULT 0.5,
+      -- Provenance: where did this memory come from?
+      source_tool    TEXT    NOT NULL DEFAULT 'import',
+      source_doc_id  INTEGER REFERENCES documents(id) ON DELETE SET NULL,
+      source_ref     TEXT,           -- e.g. 'job:42', 'connector:slack'
+      -- UserMap organisation
+      node_label     TEXT,           -- optional: which Prism Node this belongs to
+      topic          TEXT,           -- optional: subtopic / "room" equivalent
+      provenance     TEXT    NOT NULL DEFAULT '{}',   -- JSON blob: filename, job_id, connector…
+      -- Deduplication
+      dedup_hash     TEXT    NOT NULL DEFAULT '',      -- SHA-256 of normalised content
+      -- Conflict tracking (flag both sides; never silently overwrite)
+      conflict_flag  INTEGER NOT NULL DEFAULT 0,
+      conflict_with  TEXT    NOT NULL DEFAULT '[]',   -- JSON array of conflicting memory IDs
+      -- Timestamps
+      created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Full-text search over memory units (MemPalace L3-style deep search)
+    CREATE VIRTUAL TABLE IF NOT EXISTS memory_units_fts USING fts5(
+      content,
+      category,
+      topic,
+      content='prism_memory_units',
+      content_rowid='id'
+    );
+
+    CREATE TRIGGER IF NOT EXISTS memory_units_ai AFTER INSERT ON prism_memory_units BEGIN
+      INSERT INTO memory_units_fts(rowid, content, category, topic)
+        VALUES (new.id, new.content, new.category, new.topic);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS memory_units_ad AFTER DELETE ON prism_memory_units BEGIN
+      INSERT INTO memory_units_fts(memory_units_fts, rowid, content, category, topic)
+        VALUES ('delete', old.id, old.content, old.category, old.topic);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS memory_units_au AFTER UPDATE ON prism_memory_units BEGIN
+      INSERT INTO memory_units_fts(memory_units_fts, rowid, content, category, topic)
+        VALUES ('delete', old.id, old.content, old.category, old.topic);
+      INSERT INTO memory_units_fts(rowid, content, category, topic)
+        VALUES (new.id, new.content, new.category, new.topic);
+    END;
   `);
 
   // Seed default connector configs if they don't exist
