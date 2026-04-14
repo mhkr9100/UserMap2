@@ -157,6 +157,25 @@ function initSchema(db: Database.Database): void {
     );
 
     -- -----------------------------------------------------------------------
+    -- Slack messages imported from Slack API
+    -- -----------------------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS slack_messages (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      connection_id INTEGER REFERENCES connections(id) ON DELETE SET NULL,
+      channel_id    TEXT    NOT NULL,
+      ts            TEXT    NOT NULL,
+      user_id       TEXT,
+      text          TEXT    NOT NULL DEFAULT '',
+      thread_ts     TEXT,
+      timestamp     TEXT    NOT NULL,
+      attachments   TEXT    NOT NULL DEFAULT '[]',
+      files         TEXT    NOT NULL DEFAULT '[]',
+      raw_json      TEXT    NOT NULL DEFAULT '{}',
+      created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(channel_id, ts)
+    );
+
+    -- -----------------------------------------------------------------------
     -- Prism Memory Units (Prism Memory Engine — v2)
     --
     -- Each row is a structured memory unit extracted from an imported document

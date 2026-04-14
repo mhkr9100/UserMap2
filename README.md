@@ -136,10 +136,89 @@ npm run dev:server
 ## 🔌 Connecting Pull Connectors
 
 ### Slack
-1. Create a Slack App at **api.slack.com/apps**
-2. Add OAuth scopes: `channels:read`, `channels:history`, `users:read`
-3. Install to workspace and copy the Bot Token (`xoxb-...`)
-4. In UserMap → **Connectors** → Pull → Slack → **Connect**, paste your token
+
+UserMap connects to Slack via OAuth 2.0. Your token is stored encrypted in the local SQLite database (`~/.usermap/usermap.db`) — it is never sent to any cloud service.
+
+#### Setup (5 minutes)
+
+1. **Create a Slack App**
+   - Go to **https://api.slack.com/apps** → **Create New App** → **From scratch**
+   - Name it anything (e.g. `UserMap Connector`) and select your workspace
+
+2. **Add Bot Token Scopes** (Settings → OAuth & Permissions → Bot Token Scopes)
+
+   | Scope | Purpose |
+   |---|---|
+   | `channels:history` | Read messages from public channels |
+   | `channels:read` | List public channels the bot is in |
+   | `groups:history` | Read messages from private channels *(optional)* |
+   | `groups:read` | List private channels *(optional)* |
+   | `users:read` | Resolve user IDs to names |
+   | `team:read` | Read workspace info |
+
+3. **Set the Redirect URL**
+   Under **OAuth & Permissions → Redirect URLs**, add:
+   ```
+   http://localhost:5185/api/connect/slack/callback
+   ```
+
+4. **Install the app to your workspace**
+   Click **Install to Workspace** and approve the requested scopes.
+
+5. **Configure UserMap**
+   Copy the credentials from the Slack App page and add them to `apps/server/.env`:
+   ```
+   SLACK_CLIENT_ID=your-slack-client-id
+   SLACK_CLIENT_SECRET=your-slack-client-secret
+   SLACK_REDIRECT_URI=http://localhost:5185/api/connect/slack/callback
+   ```
+
+6. **Connect in the UI**
+   - Open UserMap → **Connectors** → Pull → Slack → **Connect**
+   - A browser window opens for Slack OAuth — approve, and you're connected
+   - The token is persisted in `~/.usermap/usermap.db` (not just env vars)
+
+#### How data is stored
+
+After connecting, UserMap syncs messages into the `slack_messages` table:
+
+| Column | Description |
+|---|---|
+| `ts` | Slack message timestamp (unique per channel) |
+| `channel_id` | Slack channel ID |
+| `user_id` | Slack user or bot ID |
+| `text` | Message text content |
+| `thread_ts` | Parent thread timestamp (if a reply) |
+| `timestamp` | ISO 8601 UTC datetime |
+| `attachments` | JSON array of Slack attachments |
+| `files` | JSON array of Slack files |
+| `raw_json` | Full Slack message payload (forward-compatible) |
+| `connection_id` | Links back to the authorized connection |
+
+Messages are **de-duplicated** by `(channel_id, ts)` — re-running a sync never creates duplicate rows.
+
+#### Sync endpoints
+
+| Endpoint | Description |
+|---|---|
+| `POST /api/slack/sync` | Trigger an immediate sync (all or one connection) |
+| `GET /api/slack/status` | Sync status, message count, last error |
+| `GET /api/slack/messages` | Paginated message list with filters |
+| `POST /api/connectors/:id/sync` | Triggers Slack sync when `connector_type = 'slack'` |
+
+#### Error handling
+
+All sync events (start, complete, error, rate-limit) are logged to the `logs` table and visible in UserMap → **Logs**. The Connectors UI shows:
+- Last sync time and status
+- Total messages imported
+- Any API errors (e.g. `invalid_auth`, `not_in_channel`, rate-limit retries)
+
+#### Privacy and security
+
+- Tokens are stored only in your local `~/.usermap/usermap.db` — never uploaded
+- UserMap only reads channels the bot token has explicit access to
+- No data leaves your machine; all Slack API calls are made from the local backend server
+- You can disconnect at any time: **Connectors** → Slack → **Disconnect** (clears the token from DB)
 
 ### Instagram / Facebook
 1. Create a Meta App at **developers.facebook.com**
@@ -188,7 +267,11 @@ Browser (React + Vite)
        └── Logs → Event timeline (connector.pull / prism.classify / user.crud / push.webhook)
 
 Backend (Express + SQLite)  http://localhost:5185
-  ├── /api/connectors        — connector config CRUD, sync trigger
+  ├── /api/connectors        — connector config CRUD, sync trigger (Slack runs real sync)
+  ├── /api/slack/messages    — paginated Slack message list + filters
+  ├── /api/slack/status      — sync status, counts, errors
+  ├── /api/slack/sync        — trigger immediate Slack message sync
+  ├── /api/connect/slack     — Slack OAuth flow + callback
   ├── /api/logs              — lifecycle event log
   ├── /api/context           — full-text search over documents
   ├── /api/prism/context     — Prism context retrieval (memory units + documents)
