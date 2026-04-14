@@ -74,19 +74,9 @@ Data Pull → Prism Reads → Classify → Structure → DB Update → Checkpoin
 - Deduplication: each source event tracked by unique ID hash
 - Learns from user CRUD: edits in Data Studio feed back into future classifications
 
-### 7. Prism Memory Extractor v2 (MemPalace-inspired)
+### 7. Prism Memory Engine
 
 Replaces the previous stub extraction path with a full structured memory pipeline.
-
-**Architecture mapping (MemPalace → UserMap):**
-
-| MemPalace concept | UserMap equivalent |
-|---|---|
-| Wings | Prism Nodes (top-level knowledge areas) |
-| Halls | Memory Categories (decision, preference, milestone, problem, emotional) |
-| Rooms | Topics within a node |
-| Drawers | Memory Units (rows in `prism_memory_units`) |
-| L3 Deep Search | FTS over `memory_units_fts` |
 
 **Memory categories (5 types, pattern-based — no LLM required):**
 
@@ -114,7 +104,7 @@ Input → parse → extractMemories() → dedup check → conflict check → pri
 
 **API endpoints:**
 - `GET /api/prism/memories` — list all memory units (filter by category, source_tool, conflict)
-- `GET /api/prism/memories?q=<query>` — FTS deep search (MemPalace L3-style)
+- `GET /api/prism/memories?q=<query>` — FTS deep search across all memory units
 - `POST /api/prism/extract` — extract memories from text and persist
 - `GET /api/prism/memories/:id` — get single memory unit with provenance
 - `PATCH /api/prism/memories/:id` — update node_label, topic, resolve conflict
@@ -211,7 +201,7 @@ Storage
   ├── SQLite ~/.usermap/usermap.db
   │     ├── documents          — verbatim imported content
   │     ├── documents_fts      — full-text search index
-  │     ├── prism_memory_units — structured extracted memories (MemPalace-inspired)
+  │     ├── prism_memory_units — structured extracted memories (Prism Memory Engine)
   │     ├── memory_units_fts   — FTS index for memory units (L3 deep search)
   │     ├── logs               — lifecycle event log
   │     ├── import_jobs        — ingestion job state machine
@@ -252,4 +242,10 @@ Storage
 ---
 
 Developed with 💜 for the **Quantified Self** and **Agentic Future**.
+
+---
+
+## 💡 Inspiration
+
+UserMap's memory extraction approach draws inspiration from modern memory-system research and open-source projects in the personal AI space. The structured, category-aware pipeline is informed by advances in how AI systems organize and retrieve contextual knowledge. UserMap adapts these ideas with a local-first, privacy-preserving lens — no cloud, no third-party data access.
 

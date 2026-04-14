@@ -252,7 +252,7 @@ describe('prism_sessions / prism_messages — chat persistence', () => {
 });
 
 // =============================================================================
-// MemPalace Migration — Prism Memory Extractor v2 tests
+// Prism Memory Engine — Prism Memory Extractor v2 tests
 // =============================================================================
 
 import {
@@ -417,12 +417,12 @@ describe('prism_memory_units — DB schema and FTS', () => {
         (content, category, confidence, source_tool, provenance, dedup_hash)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(
-      'We decided to adopt MemPalace architecture for the extraction pipeline',
+      'We decided to adopt a structured memory architecture for the extraction pipeline',
       'decision',
       0.8,
       'test',
       '{}',
-      contentHash('We decided to adopt MemPalace architecture for the extraction pipeline'),
+      contentHash('We decided to adopt a structured memory architecture for the extraction pipeline'),
     );
 
     let rows: Array<{ content: string; category: string }> = [];
@@ -433,14 +433,14 @@ describe('prism_memory_units — DB schema and FTS', () => {
         JOIN prism_memory_units m ON m.id = fts.rowid
         WHERE memory_units_fts MATCH ?
         LIMIT 5
-      `).all('MemPalace') as typeof rows;
+      `).all('extraction') as typeof rows;
     } catch {
       rows = [];
     }
 
     expect(rows.length).toBeGreaterThan(0);
     expect(rows[0].category).toBe('decision');
-    expect(rows[0].content).toContain('MemPalace');
+    expect(rows[0].content).toContain('extraction');
   });
 
   it('conflict_flag defaults to 0 (no conflict)', () => {

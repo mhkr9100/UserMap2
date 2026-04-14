@@ -8,11 +8,11 @@
  *   PATCH  /api/prism/memories/:id      Update node_label, topic, or resolve conflict
  *   DELETE /api/prism/memories/:id      Delete a memory unit
  *
- * These routes implement the MemPalace-inspired "Drawer" layer of UserMap:
+ * These routes implement the Prism Memory Engine "Memory Unit" layer of UserMap:
  *   - Extracted memory units with category, confidence, and full provenance.
  *   - Deduplication: exact (SHA-256 hash) + near-duplicate (Jaccard similarity).
  *   - Conflict detection: flagged but never silently discarded.
- *   - FTS search aligned with L3 deep-search in MemPalace.
+ *   - FTS search for deep retrieval across all memory units.
  */
 
 import { Router, Request, Response } from 'express';
@@ -190,7 +190,7 @@ router.get('/memories', (req: Request, res: Response) => {
   const limit = Math.min(parseInt(limitStr ?? '50', 10) || 50, 200);
   const offset = parseInt(offsetStr ?? '0', 10) || 0;
 
-  // FTS path (MemPalace L3 deep search style)
+  // FTS path (deep search across all memory units)
   if (q && q.trim()) {
     let rows: MemoryUnitRow[] = [];
     try {

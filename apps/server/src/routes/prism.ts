@@ -49,7 +49,7 @@ router.get('/health', (_req: Request, res: Response) => {
  * POST /api/prism/context
  *
  * Retrieves real context records matching the given intent.
- * Search strategy (MemPalace-inspired 4-layer approach):
+ * Search strategy (Prism 4-layer retrieval approach):
  *   1. L3 Deep Search: FTS over prism_memory_units (structured, categorised memories)
  *   2. L3 Fallback: FTS over raw documents (verbatim content store)
  * Results from both layers are merged (memory units ranked first).
