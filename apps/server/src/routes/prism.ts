@@ -104,14 +104,12 @@ router.post('/context', async (req: Request, res: Response) => {
     ...memoryRows.map((r) => ({
       source: r.source_tool,
       content: r.content,
-      category: r.category,
-      confidence: r.confidence,
+      category: r.category as string,
+      confidence: r.confidence as number,
     })),
     ...docRows.map((r) => ({
       source: r.tool,
       content: r.content,
-      category: undefined as string | undefined,
-      confidence: undefined as number | undefined,
     })),
   ].slice(0, 10);
 

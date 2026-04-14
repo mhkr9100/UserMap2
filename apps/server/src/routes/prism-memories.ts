@@ -67,11 +67,19 @@ function safeJson(value: string, fallback: unknown): unknown {
   try { return JSON.parse(value); } catch { return fallback; }
 }
 
+export interface PersistResult {
+  /** The new row id, or null if the memory was an exact or near-duplicate. */
+  id: number | null;
+  /** True if the persisted memory was flagged as conflicting with existing memories. */
+  has_conflict: boolean;
+}
+
 /**
  * Persist a single extracted memory, running dedup and conflict checks
  * against existing memories from the same source_tool.
  *
- * Returns the inserted row id, or null if the memory was an exact duplicate.
+ * Returns a PersistResult with the inserted id (or null for duplicates)
+ * and a conflict flag so callers do not need a second DB read.
  */
 export function persistMemoryUnit(
   content: string,
@@ -80,7 +88,7 @@ export function persistMemoryUnit(
   provenance: ProvenanceInfo,
   nodeLabel?: string,
   topic?: string
-): number | null {
+): PersistResult {
   const db = getDb();
   const hash = contentHash(content);
 
@@ -88,7 +96,7 @@ export function persistMemoryUnit(
   const existing = db.prepare(
     `SELECT id FROM prism_memory_units WHERE dedup_hash = ? LIMIT 1`
   ).get(hash) as { id: number } | undefined;
-  if (existing) return null;
+  if (existing) return { id: null, has_conflict: false };
 
   // Near-duplicate check using Jaccard similarity against recent memories
   // of the same category (check last 200 to keep cost bounded).
@@ -100,7 +108,7 @@ export function persistMemoryUnit(
     const sim = jaccardSimilarity(content, cand.content);
     if (sim >= NEAR_DUP_THRESHOLD) {
       // Very high similarity — treat as near-duplicate, skip insertion
-      return null;
+      return { id: null, has_conflict: false };
     }
   }
 
@@ -142,9 +150,10 @@ export function persistMemoryUnit(
   );
 
   const newId = result.lastInsertRowid as number;
+  const hasConflict = conflictIds.length > 0;
 
   // Back-flag any conflicting memories so the user sees both sides
-  if (conflictIds.length > 0) {
+  if (hasConflict) {
     for (const cid of conflictIds) {
       const prev = db.prepare(
         `SELECT conflict_with FROM prism_memory_units WHERE id = ?`
@@ -160,7 +169,7 @@ export function persistMemoryUnit(
     }
   }
 
-  return newId;
+  return { id: newId, has_conflict: hasConflict };
 }
 
 // ---------------------------------------------------------------------------
@@ -269,7 +278,7 @@ router.post('/extract', async (req: Request, res: Response) => {
   const persistedIds: number[] = [];
 
   for (const mem of extracted) {
-    const id = persistMemoryUnit(
+    const { id, has_conflict } = persistMemoryUnit(
       mem.content,
       mem.category,
       mem.confidence,
@@ -280,11 +289,7 @@ router.post('/extract', async (req: Request, res: Response) => {
     } else {
       persisted++;
       persistedIds.push(id);
-      // Check if this newly persisted unit has conflicts
-      const row = getDb().prepare(
-        `SELECT conflict_flag FROM prism_memory_units WHERE id = ?`
-      ).get(id) as { conflict_flag: number } | undefined;
-      if (row?.conflict_flag) conflicts++;
+      if (has_conflict) conflicts++;
     }
   }
 

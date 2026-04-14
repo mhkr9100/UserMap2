@@ -227,19 +227,17 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     let memoriesDuplicates = 0;
     let memoriesConflicts = 0;
     for (const mem of memories) {
-      const mid = persistMemoryUnit(
+      const { id, has_conflict } = persistMemoryUnit(
         mem.content,
         mem.category,
         mem.confidence,
         { source_tool: 'import', source_doc_id: documentId, source_ref: `job:${jobId}`, filename: safeOriginalName, job_id: jobId }
       );
-      if (mid === null) {
+      if (id === null) {
         memoriesDuplicates++;
       } else {
         memoriesPersisted++;
-        const mrow = db.prepare('SELECT conflict_flag FROM prism_memory_units WHERE id = ?')
-          .get(mid) as { conflict_flag: number } | undefined;
-        if (mrow?.conflict_flag) memoriesConflicts++;
+        if (has_conflict) memoriesConflicts++;
       }
     }
 
@@ -384,19 +382,17 @@ router.post('/text', async (req: Request, res: Response) => {
     let memoriesDuplicates = 0;
     let memoriesConflicts = 0;
     for (const mem of memories) {
-      const mid = persistMemoryUnit(
+      const { id, has_conflict } = persistMemoryUnit(
         mem.content,
         mem.category,
         mem.confidence,
         { source_tool: 'import', source_doc_id: documentId, source_ref: `job:${jobId}`, filename: safeFilename, job_id: jobId }
       );
-      if (mid === null) {
+      if (id === null) {
         memoriesDuplicates++;
       } else {
         memoriesPersisted++;
-        const mrow = db.prepare('SELECT conflict_flag FROM prism_memory_units WHERE id = ?')
-          .get(mid) as { conflict_flag: number } | undefined;
-        if (mrow?.conflict_flag) memoriesConflicts++;
+        if (has_conflict) memoriesConflicts++;
       }
     }
 

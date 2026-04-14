@@ -282,8 +282,9 @@ function isCodeLine(line: string): boolean {
   for (const p of CODE_LINE_PATTERNS) {
     if (p.test(stripped)) return true;
   }
+  // Guard: stripped is non-empty here (checked above), so length > 0
   const alphaCount = (stripped.match(/[a-zA-Z]/g) ?? []).length;
-  const alphaRatio = alphaCount / Math.max(stripped.length, 1);
+  const alphaRatio = alphaCount / stripped.length;
   if (alphaRatio < 0.4 && stripped.length > 10) return true;
   return false;
 }
@@ -457,11 +458,16 @@ export function extractMemories(text: string, minConfidence = 0.3): ExtractedMem
     // Length bonus (longer chunks carry more signal)
     const lengthBonus = segment.length > 500 ? 2 : segment.length > 200 ? 1 : 0;
 
-    // Pick highest-scoring category
-    let maxCat = Object.keys(scores).reduce(
-      (a, b) => ((scores[a as Exclude<MemoryCategory, 'general'>] ?? 0) >= (scores[b as Exclude<MemoryCategory, 'general'>] ?? 0) ? a : b)
-    ) as Exclude<MemoryCategory, 'general'>;
-    const maxScore = (scores[maxCat] ?? 0) + lengthBonus;
+    // Pick highest-scoring category (cleaner than chained type assertions)
+    let maxCat: Exclude<MemoryCategory, 'general'> = 'decision';
+    let maxRawScore = 0;
+    for (const [cat, score] of Object.entries(scores) as [Exclude<MemoryCategory, 'general'>, number][]) {
+      if (score > maxRawScore) {
+        maxRawScore = score;
+        maxCat = cat;
+      }
+    }
+    const maxScore = maxRawScore + lengthBonus;
 
     // Disambiguate
     const finalCat = disambiguate(maxCat, prose, scores);
