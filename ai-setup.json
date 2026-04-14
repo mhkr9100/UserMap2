@@ -1,0 +1,412 @@
+{
+  "owner": "mhkr9100",
+  "repo": "UserMap",
+  "ref": "8b496b4228e71c77df06f75353cbd89af3aaedd1",
+  "generatedAt": "2026-04-14T01:50:17.687Z",
+  "excludedPatterns": {
+    "extensions": [
+      ".png",
+      ".jpg",
+      ".jpeg",
+      ".gif",
+      ".webp",
+      ".ico",
+      ".svg",
+      ".mp4",
+      ".mp3",
+      ".wav",
+      ".ogg",
+      ".webm",
+      ".woff",
+      ".woff2",
+      ".ttf",
+      ".otf",
+      ".eot",
+      ".pdf",
+      ".db",
+      ".sqlite",
+      ".sqlite3",
+      ".zip",
+      ".tar",
+      ".gz",
+      ".7z",
+      ".exe",
+      ".bin",
+      ".so",
+      ".dylib",
+      ".dll"
+    ],
+    "filenames": [
+      "package-lock.json",
+      "yarn.lock",
+      "pnpm-lock.yaml",
+      ".DS_Store",
+      "Thumbs.db",
+      "bundle.txt",
+      "ai-setup.json"
+    ],
+    "directories": [
+      "node_modules/",
+      "dist/",
+      "dist-electron/",
+      ".git/",
+      "uploads/"
+    ],
+    "notes": "Binary assets, lock files, build artifacts, and database files are excluded to keep the manifest focused on readable source."
+  },
+  "fileCount": 88,
+  "files": [
+    {
+      "path": ".env.example",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/.env.example"
+    },
+    {
+      "path": ".gitignore",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/.gitignore"
+    },
+    {
+      "path": "App.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/App.tsx"
+    },
+    {
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/README.md"
+    },
+    {
+      "path": "README_OFFLINE.md",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/README_OFFLINE.md"
+    },
+    {
+      "path": "apps/desktop/index.html",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/desktop/index.html"
+    },
+    {
+      "path": "apps/desktop/package.json",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/desktop/package.json"
+    },
+    {
+      "path": "apps/desktop/postcss.config.js",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/desktop/postcss.config.js"
+    },
+    {
+      "path": "apps/desktop/src/App.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/desktop/src/App.tsx"
+    },
+    {
+      "path": "apps/desktop/src/components/ConnectionCard.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/desktop/src/components/ConnectionCard.tsx"
+    },
+    {
+      "path": "apps/desktop/src/components/ContextQuery.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/desktop/src/components/ContextQuery.tsx"
+    },
+    {
+      "path": "apps/desktop/src/components/StatusIndicator.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/desktop/src/components/StatusIndicator.tsx"
+    },
+    {
+      "path": "apps/desktop/src/index.css",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/desktop/src/index.css"
+    },
+    {
+      "path": "apps/desktop/src/main.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/desktop/src/main.tsx"
+    },
+    {
+      "path": "apps/desktop/src/services/api.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/desktop/src/services/api.ts"
+    },
+    {
+      "path": "apps/desktop/tailwind.config.js",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/desktop/tailwind.config.js"
+    },
+    {
+      "path": "apps/desktop/tsconfig.json",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/desktop/tsconfig.json"
+    },
+    {
+      "path": "apps/desktop/vite.config.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/desktop/vite.config.ts"
+    },
+    {
+      "path": "apps/server/.env.example",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/.env.example"
+    },
+    {
+      "path": "apps/server/package.json",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/package.json"
+    },
+    {
+      "path": "apps/server/src/adapters/base.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/src/adapters/base.ts"
+    },
+    {
+      "path": "apps/server/src/adapters/slack.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/src/adapters/slack.ts"
+    },
+    {
+      "path": "apps/server/src/db/index.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/src/db/index.ts"
+    },
+    {
+      "path": "apps/server/src/index.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/src/index.ts"
+    },
+    {
+      "path": "apps/server/src/routes/connections.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/src/routes/connections.ts"
+    },
+    {
+      "path": "apps/server/src/routes/connectors.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/src/routes/connectors.ts"
+    },
+    {
+      "path": "apps/server/src/routes/context.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/src/routes/context.ts"
+    },
+    {
+      "path": "apps/server/src/routes/custom-apis.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/src/routes/custom-apis.ts"
+    },
+    {
+      "path": "apps/server/src/routes/dashboard.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/src/routes/dashboard.ts"
+    },
+    {
+      "path": "apps/server/src/routes/import.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/src/routes/import.ts"
+    },
+    {
+      "path": "apps/server/src/routes/logs.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/src/routes/logs.ts"
+    },
+    {
+      "path": "apps/server/src/routes/prism.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/src/routes/prism.ts"
+    },
+    {
+      "path": "apps/server/src/routes/slack.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/src/routes/slack.ts"
+    },
+    {
+      "path": "apps/server/src/routes/status.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/src/routes/status.ts"
+    },
+    {
+      "path": "apps/server/tsconfig.json",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/apps/server/tsconfig.json"
+    },
+    {
+      "path": "components/ConnectorsPage.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/ConnectorsPage.tsx"
+    },
+    {
+      "path": "components/ContextImportDialog.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/ContextImportDialog.tsx"
+    },
+    {
+      "path": "components/ContextSearchView.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/ContextSearchView.tsx"
+    },
+    {
+      "path": "components/DashboardPage.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/DashboardPage.tsx"
+    },
+    {
+      "path": "components/DataStudioPage.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/DataStudioPage.tsx"
+    },
+    {
+      "path": "components/DocsPage.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/DocsPage.tsx"
+    },
+    {
+      "path": "components/FlowChartView.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/FlowChartView.tsx"
+    },
+    {
+      "path": "components/IntegrationsPanel.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/IntegrationsPanel.tsx"
+    },
+    {
+      "path": "components/LogsPage.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/LogsPage.tsx"
+    },
+    {
+      "path": "components/MindMapView.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/MindMapView.tsx"
+    },
+    {
+      "path": "components/PrismAgentPage.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/PrismAgentPage.tsx"
+    },
+    {
+      "path": "components/PrismInterface.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/PrismInterface.tsx"
+    },
+    {
+      "path": "components/PrismSetup.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/PrismSetup.tsx"
+    },
+    {
+      "path": "components/Sidebar.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/Sidebar.tsx"
+    },
+    {
+      "path": "components/SocialArchiveDropzone.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/SocialArchiveDropzone.tsx"
+    },
+    {
+      "path": "components/TimelineView.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/TimelineView.tsx"
+    },
+    {
+      "path": "components/UserFilesPage.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/UserFilesPage.tsx"
+    },
+    {
+      "path": "components/UserMapView.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/UserMapView.tsx"
+    },
+    {
+      "path": "components/icons/BrandMark.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/components/icons/BrandMark.tsx"
+    },
+    {
+      "path": "electron/main.js",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/electron/main.js"
+    },
+    {
+      "path": "electron/preload.js",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/electron/preload.js"
+    },
+    {
+      "path": "fix-pack-a.test.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/fix-pack-a.test.ts"
+    },
+    {
+      "path": "hooks/useAuth.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/hooks/useAuth.ts"
+    },
+    {
+      "path": "hooks/useIntegrations.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/hooks/useIntegrations.ts"
+    },
+    {
+      "path": "hooks/useUserMap.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/hooks/useUserMap.ts"
+    },
+    {
+      "path": "index.css",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/index.css"
+    },
+    {
+      "path": "index.html",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/index.html"
+    },
+    {
+      "path": "index.tsx",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/index.tsx"
+    },
+    {
+      "path": "package.json",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/package.json"
+    },
+    {
+      "path": "postcss.config.js",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/postcss.config.js"
+    },
+    {
+      "path": "public/theme-init.js",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/public/theme-init.js"
+    },
+    {
+      "path": "scripts/make-bundle.mjs",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/scripts/make-bundle.mjs"
+    },
+    {
+      "path": "scripts/make-manifest.mjs",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/scripts/make-manifest.mjs"
+    },
+    {
+      "path": "services/contextQuery.test.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/services/contextQuery.test.ts"
+    },
+    {
+      "path": "services/contextQuery.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/services/contextQuery.ts"
+    },
+    {
+      "path": "services/integrations/base.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/services/integrations/base.ts"
+    },
+    {
+      "path": "services/integrations/chatgpt.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/services/integrations/chatgpt.ts"
+    },
+    {
+      "path": "services/integrations/claude.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/services/integrations/claude.ts"
+    },
+    {
+      "path": "services/integrations/gemini.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/services/integrations/gemini.ts"
+    },
+    {
+      "path": "services/integrations/github.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/services/integrations/github.ts"
+    },
+    {
+      "path": "services/integrations/gmail.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/services/integrations/gmail.ts"
+    },
+    {
+      "path": "services/integrations/index.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/services/integrations/index.ts"
+    },
+    {
+      "path": "services/integrations/ollama.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/services/integrations/ollama.ts"
+    },
+    {
+      "path": "services/integrations/slack.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/services/integrations/slack.ts"
+    },
+    {
+      "path": "services/prismAgent.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/services/prismAgent.ts"
+    },
+    {
+      "path": "services/structurerService.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/services/structurerService.ts"
+    },
+    {
+      "path": "services/workspaceApi.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/services/workspaceApi.ts"
+    },
+    {
+      "path": "static-demo/index.html",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/static-demo/index.html"
+    },
+    {
+      "path": "tailwind.config.js",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/tailwind.config.js"
+    },
+    {
+      "path": "tsconfig.json",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/tsconfig.json"
+    },
+    {
+      "path": "types.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/types.ts"
+    },
+    {
+      "path": "vite-env.d.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/vite-env.d.ts"
+    },
+    {
+      "path": "vite.config.ts",
+      "url": "https://raw.githubusercontent.com/mhkr9100/UserMap/8b496b4228e71c77df06f75353cbd89af3aaedd1/vite.config.ts"
+    }
+  ]
+}

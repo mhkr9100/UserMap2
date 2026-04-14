@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UserMap — Static Demo</title>
+  <!--
+    UserMap Static Demo
+    ───────────────────
+    This file runs with zero npm dependencies.
+    Serve it locally:  python3 -m http.server 8080
+    Then open:         http://localhost:8080/static-demo/
+
+    CDN dependencies used:
+      - Tailwind CSS (via CDN play)       — layout & styling
+      - Lucide Icons (via unpkg CDN)      — icon SVGs as inline JS
+      - No React — plain JS DOM           — keeps it fully offline-friendly
+
+    This demo shows empty-state UI shells for all main pages.
+    It does NOT contain mocked business data.
+    If a backend is running at http://localhost:5185 the demo will
+    try to connect and display real data where available.
+  -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#7C3AED', light: '#A78BFA', dark: '#5B21B6' }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .sidebar-item { transition: background 0.15s ease; }
+    .sidebar-item:hover { background: rgba(124,58,237,0.08); }
+    .sidebar-item.active { background: rgba(124,58,237,0.12); color: #7C3AED; font-weight: 600; }
+    .chat-bubble-user { background: #7C3AED; color: #fff; border-radius: 12px 12px 2px 12px; }
+    .chat-bubble-ai   { background: #F3F4F6; color: #111; border-radius: 12px 12px 12px 2px; }
+    @media (prefers-color-scheme: dark) {
+      .chat-bubble-ai { background: #374151; color: #F9FAFB; }
+    }
+    .fade-in { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .pulse { animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .connector-card { transition: box-shadow 0.15s, transform 0.15s; }
+    .connector-card:hover { box-shadow: 0 4px 16px rgba(124,58,237,0.15); transform: translateY(-1px); }
+    #chat-input:focus { outline: 2px solid #7C3AED; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 h-screen flex overflow-hidden">
+
+<!-- ═══════════════════════════════ SIDEBAR ══════════════════════════════════ -->
+<aside id="sidebar" class="w-56 shrink-0 bg-white border-r border-gray-100 flex flex-col py-4 shadow-sm z-10">
+  <div class="px-4 mb-6">
+    <div class="flex items-center gap-2">
+      <div class="w-7 h-7 rounded-lg bg-brand flex items-center justify-center text-white text-xs font-bold">U</div>
+      <span class="font-semibold text-gray-800 text-sm">UserMap</span>
+      <span class="ml-auto text-[10px] bg-violet-100 text-violet-600 rounded-full px-2 py-0.5 font-medium">demo</span>
+    </div>
+  </div>
+
+  <nav class="flex-1 px-2 space-y-0.5 text-sm">
+    <button onclick="navigate('dashboard')" id="nav-dashboard"
+      class="sidebar-item active w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-gray-700">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button onclick="navigate('prism')" id="nav-prism"
+      class="sidebar-item w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-gray-700">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Prism Chat
+    </button>
+    <div>
+      <button onclick="navigate('data-studio')" id="nav-data-studio"
+        class="sidebar-item w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-gray-700">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        Data Studio
+      </button>
+    </div>
+    <button onclick="navigate('connectors')" id="nav-connectors"
+      class="sidebar-item w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-gray-700">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      Connectors
+    </button>
+    <button onclick="navigate('logs')" id="nav-logs"
+      class="sidebar-item w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-gray-700">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Logs
+    </button>
+  </nav>
+
+  <div class="px-4 mt-4 pt-4 border-t border-gray-100">
+    <div id="backend-status" class="text-[11px] text-gray-400 flex items-center gap-1.5">
+      <span class="w-2 h-2 rounded-full bg-gray-300 pulse shrink-0"></span>
+      Checking backend…
+    </div>
+    <p class="text-[10px] text-gray-400 mt-1">Static demo — no npm required</p>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════════ MAIN CONTENT ═════════════════════════════ -->
+<main class="flex-1 overflow-hidden flex flex-col min-w-0">
+
+  <!-- ─── DASHBOARD PAGE ─────────────────────────────────────────────────── -->
+  <section id="page-dashboard" class="flex-1 overflow-y-auto p-6 fade-in">
+    <div class="max-w-4xl mx-auto">
+      <h1 class="text-xl font-semibold text-gray-800 mb-1">Dashboard</h1>
+      <p class="text-sm text-gray-500 mb-6">Your personal context at a glance.</p>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div id="stat-nodes" class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+          <p class="text-xs text-gray-400 mb-1">Knowledge Nodes</p>
+          <p class="text-2xl font-bold text-gray-800">—</p>
+        </div>
+        <div id="stat-connectors" class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+          <p class="text-xs text-gray-400 mb-1">Connectors</p>
+          <p class="text-2xl font-bold text-gray-800">—</p>
+        </div>
+        <div id="stat-imports" class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+          <p class="text-xs text-gray-400 mb-1">Import Jobs</p>
+          <p class="text-2xl font-bold text-gray-800">—</p>
+        </div>
+        <div id="stat-logs" class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+          <p class="text-xs text-gray-400 mb-1">Log Events (24h)</p>
+          <p class="text-2xl font-bold text-gray-800">—</p>
+        </div>
+      </div>
+
+      <div id="dashboard-summary" class="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <h2 class="text-sm font-semibold text-gray-700 mb-3">Recent Activity</h2>
+        <div id="dashboard-activity" class="text-sm text-gray-400 py-6 text-center">
+          Loading activity from backend…
+        </div>
+      </div>
+
+      <div class="mt-6 rounded-xl border border-violet-100 bg-violet-50 p-4 text-sm text-violet-700">
+        <strong>Static Demo Mode</strong> — This page connects to
+        <code class="text-xs bg-violet-100 px-1 rounded">http://localhost:5185</code> if your backend is running.
+        Start it with <code class="text-xs bg-violet-100 px-1 rounded">npm run dev:server</code>
+        from the repo root. Stats above will populate automatically.
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── PRISM CHAT PAGE ────────────────────────────────────────────────── -->
+  <section id="page-prism" class="hidden flex-1 flex-col overflow-hidden fade-in">
+    <div class="border-b border-gray-100 bg-white px-6 py-3 flex items-center gap-3 shrink-0">
+      <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">P</div>
+      <div>
+        <p class="text-sm font-semibold text-gray-800">Prism</p>
+        <p class="text-xs text-gray-400">Your personal AI — powered by your context graph</p>
+      </div>
+      <div id="prism-status-badge" class="ml-auto text-[11px] bg-gray-100 text-gray-400 px-2.5 py-1 rounded-full">
+        offline
+      </div>
+    </div>
+
+    <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-4">
+      <div class="flex gap-3">
+        <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0 mt-0.5">P</div>
+        <div class="chat-bubble-ai px-4 py-2.5 text-sm max-w-prose">
+          Hi! I'm Prism, your personal AI assistant. I use your knowledge graph to give you context-aware answers.<br><br>
+          <span class="text-gray-500">Connect a backend (<code class="text-xs">npm run dev:server</code>) to enable full chat.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="border-t border-gray-100 bg-white px-4 py-3 shrink-0">
+      <div class="flex gap-2 items-end">
+        <textarea id="chat-input"
+          class="flex-1 resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:bg-white transition-colors"
+          rows="1"
+          placeholder="Ask Prism anything about your context…"
+          onkeydown="handleChatKey(event)"></textarea>
+        <button onclick="sendChat()"
+          class="shrink-0 w-9 h-9 rounded-xl bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── DATA STUDIO PAGE ───────────────────────────────────────────────── -->
+  <section id="page-data-studio" class="hidden flex-1 overflow-y-auto p-6 fade-in">
+    <div class="max-w-5xl mx-auto">
+      <h1 class="text-xl font-semibold text-gray-800 mb-1">Data Studio</h1>
+      <p class="text-sm text-gray-500 mb-6">Explore and manage your knowledge graph visually.</p>
+
+      <div class="flex gap-3 mb-6">
+        <button onclick="dsTab('mindmap')" id="ds-tab-mindmap" class="px-4 py-2 rounded-lg text-sm font-medium bg-brand text-white">MindMap</button>
+        <button onclick="dsTab('context')" id="ds-tab-context" class="px-4 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50">Context Search</button>
+        <button onclick="dsTab('files')" id="ds-tab-files" class="px-4 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50">User Files</button>
+        <button onclick="dsTab('import')" id="ds-tab-import" class="px-4 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50">Import</button>
+      </div>
+
+      <!-- MindMap tab -->
+      <div id="ds-mindmap" class="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div class="flex items-center justify-center py-20 text-gray-300 flex-col gap-4">
+          <svg class="w-12 h-12" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="4" r="2" fill="currentColor" stroke="none"/><circle cx="20" cy="8" r="2" fill="currentColor" stroke="none"/><circle cx="20" cy="16" r="2" fill="currentColor" stroke="none"/><circle cx="12" cy="20" r="2" fill="currentColor" stroke="none"/><circle cx="4" cy="16" r="2" fill="currentColor" stroke="none"/><circle cx="4" cy="8" r="2" fill="currentColor" stroke="none"/><line x1="12" y1="9" x2="12" y2="6"/><line x1="14.6" y1="10.4" x2="18.2" y2="9.2"/><line x1="14.6" y1="13.6" x2="18.2" y2="14.8"/><line x1="12" y1="15" x2="12" y2="18"/><line x1="9.4" y1="13.6" x2="5.8" y2="14.8"/><line x1="9.4" y1="10.4" x2="5.8" y2="9.2"/></svg>
+          <p class="text-sm font-medium text-gray-400">MindMap is empty</p>
+          <p class="text-xs text-gray-300">Import data or connect tools to populate your knowledge graph</p>
+          <button onclick="dsTab('import')" class="px-4 py-2 bg-brand text-white text-sm rounded-lg hover:bg-brand-dark transition-colors">Import Data</button>
+        </div>
+      </div>
+
+      <!-- Context Search tab -->
+      <div id="ds-context" class="hidden bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div class="flex gap-2 mb-4">
+          <input type="text" id="context-query" placeholder="Search your knowledge graph…" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand" onkeydown="if(event.key==='Enter') searchContext()" />
+          <button onclick="searchContext()" class="px-4 py-2 bg-brand text-white text-sm rounded-lg hover:bg-brand-dark transition-colors">Search</button>
+        </div>
+        <div id="context-results" class="text-sm text-gray-400 py-8 text-center">Enter a query to search your context graph.</div>
+      </div>
+
+      <!-- Files tab -->
+      <div id="ds-files" class="hidden bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div id="files-list" class="text-sm text-gray-400 py-8 text-center">Loading import jobs…</div>
+      </div>
+
+      <!-- Import tab -->
+      <div id="ds-import" class="hidden bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-700 mb-4">Import Data</h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">Text / Paste Content</label>
+            <textarea id="import-text" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm h-28 resize-none focus:outline-none focus:border-brand" placeholder="Paste any text, notes, or content here…"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">File Upload (pdf, docx, xlsx, txt, csv…)</label>
+            <input type="file" id="import-file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md,.json,.html,.rtf" class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">Import Notes / Context Hint <span class="text-gray-400 font-normal">(helps Prism understand the context)</span></label>
+            <input type="text" id="import-notes" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand" placeholder="e.g. Monthly fitness report from Jan 2025" />
+          </div>
+          <button onclick="doImport()" class="px-5 py-2 bg-brand text-white text-sm rounded-lg hover:bg-brand-dark transition-colors font-medium">
+            Import → Prism
+          </button>
+          <div id="import-result" class="text-sm text-gray-500 hidden"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CONNECTORS PAGE ────────────────────────────────────────────────── -->
+  <section id="page-connectors" class="hidden flex-1 overflow-y-auto p-6 fade-in">
+    <div class="max-w-4xl mx-auto">
+      <h1 class="text-xl font-semibold text-gray-800 mb-1">Connectors</h1>
+      <p class="text-sm text-gray-500 mb-6">Connect tools to pull data, push outputs, and configure AI engines.</p>
+
+      <div class="flex gap-2 mb-6">
+        <button onclick="connTab('pull')" id="conn-tab-pull" class="px-4 py-2 rounded-lg text-sm font-medium bg-brand text-white">Pull</button>
+        <button onclick="connTab('push')" id="conn-tab-push" class="px-4 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50">Push</button>
+        <button onclick="connTab('ai')" id="conn-tab-ai" class="px-4 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50">AI Engines</button>
+        <button onclick="connTab('custom')" id="conn-tab-custom" class="px-4 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50">Custom APIs</button>
+      </div>
+
+      <!-- Pull -->
+      <div id="conn-pull">
+        <p class="text-xs text-gray-400 mb-4 uppercase tracking-wide font-medium">Data Sources — Pull</p>
+        <div class="grid md:grid-cols-2 gap-4" id="pull-list">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Push -->
+      <div id="conn-push" class="hidden">
+        <p class="text-xs text-gray-400 mb-4 uppercase tracking-wide font-medium">Output Destinations — Push</p>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="connector-card bg-white rounded-xl border border-gray-100 p-4 shadow-sm flex items-start gap-3">
+            <div class="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 text-sm font-bold shrink-0">N</div>
+            <div class="flex-1">
+              <p class="text-sm font-semibold text-gray-800">Notion</p>
+              <p class="text-xs text-gray-400 mt-0.5">Push structured context nodes to Notion pages.</p>
+              <span class="inline-block mt-2 text-[11px] bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full">Not connected</span>
+            </div>
+          </div>
+          <div class="connector-card bg-white rounded-xl border border-gray-100 p-4 shadow-sm flex items-start gap-3">
+            <div class="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 text-sm font-bold shrink-0">W</div>
+            <div class="flex-1">
+              <p class="text-sm font-semibold text-gray-800">Webhook</p>
+              <p class="text-xs text-gray-400 mt-0.5">Send data to any HTTP endpoint on events.</p>
+              <span class="inline-block mt-2 text-[11px] bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full">Not configured</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Engines -->
+      <div id="conn-ai" class="hidden">
+        <p class="text-xs text-gray-400 mb-4 uppercase tracking-wide font-medium">AI Engines</p>
+        <div class="grid md:grid-cols-2 gap-4" id="ai-list">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Custom APIs -->
+      <div id="conn-custom" class="hidden">
+        <div class="flex items-center justify-between mb-4">
+          <p class="text-xs text-gray-400 uppercase tracking-wide font-medium">Custom APIs &amp; Webhooks</p>
+          <button onclick="showAddCustomApi()" class="px-3 py-1.5 bg-brand text-white text-xs rounded-lg hover:bg-brand-dark">+ Add API</button>
+        </div>
+        <div id="custom-api-list" class="space-y-3"></div>
+        <div id="custom-api-form" class="hidden mt-4 bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-3">
+          <h4 class="text-sm font-semibold text-gray-700">New Custom API</h4>
+          <input type="text" id="api-name" placeholder="API Name" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand" />
+          <input type="url" id="api-url" placeholder="Base URL (https://…)" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand" />
+          <input type="text" id="api-key" placeholder="API Key (stored locally)" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand" />
+          <div class="flex gap-2">
+            <button onclick="saveCustomApi()" class="px-4 py-1.5 bg-brand text-white text-sm rounded-lg hover:bg-brand-dark">Save</button>
+            <button onclick="document.getElementById('custom-api-form').classList.add('hidden')" class="px-4 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-lg hover:bg-gray-200">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── LOGS PAGE ──────────────────────────────────────────────────────── -->
+  <section id="page-logs" class="hidden flex-1 overflow-y-auto p-6 fade-in">
+    <div class="max-w-4xl mx-auto">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-xl font-semibold text-gray-800 mb-1">Logs</h1>
+          <p class="text-sm text-gray-500">Real-time pipeline events and errors.</p>
+        </div>
+        <button onclick="loadLogs()" class="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">↻ Refresh</button>
+      </div>
+      <div id="logs-list" class="space-y-2 text-sm">
+        <p class="text-gray-400 text-center py-8">Loading logs…</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ─── Navigation ──────────────────────────────────────────────────────────────
+const PAGES = ['dashboard','prism','data-studio','connectors','logs'];
+const NAV_IDS = {
+  'dashboard': 'nav-dashboard',
+  'prism': 'nav-prism',
+  'data-studio': 'nav-data-studio',
+  'connectors': 'nav-connectors',
+  'logs': 'nav-logs',
+};
+
+function navigate(page) {
+  PAGES.forEach(p => {
+    const el = document.getElementById('page-' + p);
+    if (el) {
+      if (p === page) {
+        el.classList.remove('hidden');
+        el.classList.add('flex');
+        setTimeout(() => el.classList.add('fade-in'), 10);
+      } else {
+        el.classList.add('hidden');
+        el.classList.remove('flex');
+      }
+    }
+  });
+  Object.entries(NAV_IDS).forEach(([p, navId]) => {
+    const btn = document.getElementById(navId);
+    if (!btn) return;
+    if (p === page) btn.classList.add('active');
+    else btn.classList.remove('active');
+  });
+  if (page === 'logs') loadLogs();
+  if (page === 'connectors') loadConnectors();
+  if (page === 'dashboard') loadDashboard();
+}
+
+// ─── Sub-tab helpers ─────────────────────────────────────────────────────────
+function dsTab(tab) {
+  ['mindmap','context','files','import'].forEach(t => {
+    document.getElementById('ds-' + t).classList.toggle('hidden', t !== tab);
+    document.getElementById('ds-tab-' + t).className =
+      t === tab
+        ? 'px-4 py-2 rounded-lg text-sm font-medium bg-brand text-white'
+        : 'px-4 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50';
+  });
+  if (tab === 'files') loadFiles();
+}
+
+function connTab(tab) {
+  ['pull','push','ai','custom'].forEach(t => {
+    document.getElementById('conn-' + t).classList.toggle('hidden', t !== tab);
+    document.getElementById('conn-tab-' + t).className =
+      t === tab
+        ? 'px-4 py-2 rounded-lg text-sm font-medium bg-brand text-white'
+        : 'px-4 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50';
+  });
+  if (tab === 'custom') loadCustomApis();
+}
+
+// ─── Backend probe ────────────────────────────────────────────────────────────
+const API = 'http://localhost:5185';
+let backendOnline = false;
+
+async function probeBackend() {
+  try {
+    const r = await fetch(API + '/api/status', { signal: AbortSignal.timeout(2000) });
+    backendOnline = r.ok;
+  } catch { backendOnline = false; }
+
+  const badge = document.getElementById('backend-status');
+  if (backendOnline) {
+    badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-400 shrink-0"></span> Backend online';
+    badge.className = 'text-[11px] text-green-600 flex items-center gap-1.5';
+    document.getElementById('prism-status-badge').textContent = 'online';
+    document.getElementById('prism-status-badge').className = 'ml-auto text-[11px] bg-green-100 text-green-600 px-2.5 py-1 rounded-full';
+  } else {
+    badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400 shrink-0"></span> Backend offline';
+    badge.className = 'text-[11px] text-red-500 flex items-center gap-1.5';
+  }
+}
+
+// ─── Dashboard ───────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  if (!backendOnline) {
+    document.getElementById('dashboard-activity').textContent = 'Backend not running. Start with: npm run dev:server';
+    return;
+  }
+  try {
+    const r = await fetch(API + '/api/dashboard/summary');
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    document.getElementById('stat-nodes').querySelector('.text-2xl').textContent = d.nodeCount ?? '—';
+    document.getElementById('stat-connectors').querySelector('.text-2xl').textContent = d.connectorCount ?? '—';
+    document.getElementById('stat-imports').querySelector('.text-2xl').textContent = d.importJobCount ?? '—';
+    document.getElementById('stat-logs').querySelector('.text-2xl').textContent = d.logCount ?? '—';
+    if (d.recentLogs && d.recentLogs.length) {
+      document.getElementById('dashboard-activity').innerHTML = d.recentLogs.map(l =>
+        `<div class="flex items-center gap-2 py-1 border-b border-gray-50 last:border-0">
+          <span class="text-[11px] font-mono text-gray-400 shrink-0">${(l.createdAt||l.ts||'').slice(11,19)}</span>
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium ${levelBadge(l.level)}">${l.level||'info'}</span>
+          <span class="text-xs text-gray-600 truncate">${escHtml(l.event||l.message||'')}</span>
+        </div>`
+      ).join('');
+    } else {
+      document.getElementById('dashboard-activity').textContent = 'No recent activity.';
+    }
+  } catch { document.getElementById('dashboard-activity').textContent = 'Failed to load dashboard data.'; }
+}
+
+function levelBadge(level) {
+  const m = { error: 'bg-red-100 text-red-600', warn: 'bg-yellow-100 text-yellow-600', info: 'bg-blue-100 text-blue-600', debug: 'bg-gray-100 text-gray-500' };
+  return m[level] || m.info;
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+function handleChatKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+}
+
+let activeChatSession = null;
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  appendChatBubble('user', msg);
+
+  if (!backendOnline) {
+    appendChatBubble('ai', 'Backend is offline. Start the server with <code>npm run dev:server</code> to enable Prism chat.');
+    return;
+  }
+
+  try {
+    if (!activeChatSession) {
+      const sr = await fetch(API + '/api/prism/sessions', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ title: 'Static Demo' })
+      });
+      const sd = await sr.json();
+      activeChatSession = sd.id;
+    }
+    const r = await fetch(API + '/api/prism/chat', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ message: msg, sessionId: activeChatSession })
+    });
+    const d = await r.json();
+    appendChatBubble('ai', d.reply || d.message || d.error || 'No response');
+  } catch (err) {
+    appendChatBubble('ai', 'Error contacting backend: ' + escHtml(String(err)));
+  }
+}
+
+function appendChatBubble(role, text) {
+  const wrap = document.createElement('div');
+  wrap.className = 'flex gap-3' + (role === 'user' ? ' justify-end' : '');
+  if (role === 'ai') {
+    wrap.innerHTML = `<div class="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0 mt-0.5">P</div>
+      <div class="chat-bubble-ai px-4 py-2.5 text-sm max-w-prose">${text}</div>`;
+  } else {
+    wrap.innerHTML = `<div class="chat-bubble-user px-4 py-2.5 text-sm max-w-prose">${escHtml(text)}</div>`;
+  }
+  const msgs = document.getElementById('chat-messages');
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ─── Context Search ───────────────────────────────────────────────────────────
+async function searchContext() {
+  const q = document.getElementById('context-query').value.trim();
+  const el = document.getElementById('context-results');
+  if (!q) return;
+  if (!backendOnline) { el.textContent = 'Backend offline — start server to search.'; return; }
+  el.textContent = 'Searching…';
+  try {
+    const r = await fetch(API + '/api/prism/context?q=' + encodeURIComponent(q));
+    const d = await r.json();
+    const hits = d.results || d.hits || [];
+    if (!hits.length) { el.textContent = 'No results found.'; return; }
+    el.innerHTML = hits.map(h =>
+      `<div class="border border-gray-100 rounded-lg p-3 mb-2">
+        <p class="text-xs font-medium text-gray-700">${escHtml(h.label||h.title||'Result')}</p>
+        <p class="text-xs text-gray-400 mt-1">${escHtml(h.value||h.snippet||'')}</p>
+      </div>`
+    ).join('');
+  } catch { el.textContent = 'Search failed.'; }
+}
+
+// ─── Files ────────────────────────────────────────────────────────────────────
+async function loadFiles() {
+  const el = document.getElementById('files-list');
+  if (!backendOnline) { el.textContent = 'Backend offline — no files to display.'; return; }
+  try {
+    const r = await fetch(API + '/api/import/jobs');
+    const jobs = await r.json();
+    if (!jobs.length) { el.textContent = 'No imported files yet.'; return; }
+    el.innerHTML = jobs.map(j =>
+      `<div class="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+        <span class="text-xs font-mono text-gray-400 shrink-0 w-20">${(j.createdAt||'').slice(0,10)}</span>
+        <span class="flex-1 text-sm text-gray-700 truncate">${escHtml(j.filename||j.name||'File')}</span>
+        <span class="text-[11px] px-2 py-0.5 rounded-full ${statusBadge(j.status)}">${j.status||'?'}</span>
+      </div>`
+    ).join('');
+  } catch { el.textContent = 'Failed to load files.'; }
+}
+
+function statusBadge(s) {
+  const m = { done:'bg-green-100 text-green-600', error:'bg-red-100 text-red-600', processing:'bg-yellow-100 text-yellow-600', classifying:'bg-violet-100 text-violet-600' };
+  return m[s] || 'bg-gray-100 text-gray-500';
+}
+
+// ─── Import ───────────────────────────────────────────────────────────────────
+async function doImport() {
+  const result = document.getElementById('import-result');
+  const notes = document.getElementById('import-notes').value.trim();
+  const text  = document.getElementById('import-text').value.trim();
+  const file  = document.getElementById('import-file').files[0];
+
+  if (!backendOnline) { showImportResult('error', 'Backend offline — start server to import.'); return; }
+  if (!text && !file) { showImportResult('error', 'Please enter text or select a file.'); return; }
+
+  try {
+    if (file) {
+      const fd = new FormData();
+      fd.append('file', file);
+      if (notes) fd.append('notes', notes);
+      const r = await fetch(API + '/api/import', { method: 'POST', body: fd });
+      const d = await r.json();
+      showImportResult(r.ok ? 'ok' : 'error', r.ok ? `Queued: ${d.jobId || 'job created'}` : (d.error || 'Import failed'));
+    } else {
+      const r = await fetch(API + '/api/import/text', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ content: text, notes })
+      });
+      const d = await r.json();
+      showImportResult(r.ok ? 'ok' : 'error', r.ok ? 'Text imported successfully' : (d.error || 'Import failed'));
+    }
+  } catch (err) { showImportResult('error', String(err)); }
+}
+
+function showImportResult(type, msg) {
+  const el = document.getElementById('import-result');
+  el.classList.remove('hidden');
+  el.className = 'text-sm ' + (type === 'ok' ? 'text-green-600' : 'text-red-600');
+  el.textContent = msg;
+}
+
+// ─── Connectors ───────────────────────────────────────────────────────────────
+const PULL_CONNECTORS = [
+  { name: 'Slack', icon: 'S', color: 'bg-emerald-100 text-emerald-700', desc: 'Pull messages and threads from your Slack workspace.' },
+  { name: 'GitHub', icon: 'G', color: 'bg-gray-100 text-gray-700', desc: 'Sync commits, pull requests, and issues from GitHub.' },
+  { name: 'Gmail', icon: 'M', color: 'bg-red-100 text-red-600', desc: 'Import emails from your Gmail inbox for context retrieval.' },
+];
+const AI_CONNECTORS = [
+  { name: 'ChatGPT', icon: 'C', color: 'bg-green-100 text-green-700', desc: 'Chat with ChatGPT — UserMap context injected automatically.' },
+  { name: 'Claude', icon: 'A', color: 'bg-orange-100 text-orange-600', desc: 'Chat with Anthropic\'s Claude using your knowledge graph.' },
+  { name: 'Gemini', icon: 'G', color: 'bg-blue-100 text-blue-600', desc: 'Chat with Google\'s Gemini with automatic context fetching.' },
+  { name: 'Ollama', icon: 'O', color: 'bg-violet-100 text-violet-600', desc: 'Run AI queries entirely offline using a local Ollama model.' },
+];
+
+async function loadConnectors() {
+  // Pull list
+  const pullEl = document.getElementById('pull-list');
+  pullEl.innerHTML = PULL_CONNECTORS.map(c => connectorCard(c, 'Not connected')).join('');
+
+  // AI list
+  const aiEl = document.getElementById('ai-list');
+  aiEl.innerHTML = AI_CONNECTORS.map(c => connectorCard(c, 'Add API Key')).join('');
+
+  if (!backendOnline) return;
+  // Try to load real connector status
+  try {
+    const r = await fetch(API + '/api/connectors');
+    const conns = await r.json();
+    (Array.isArray(conns) ? conns : (conns.data || [])).forEach(c => {
+      // Update status in DOM (simple approach)
+    });
+  } catch { /* ignore */ }
+}
+
+function connectorCard(c, status) {
+  return `<div class="connector-card bg-white rounded-xl border border-gray-100 p-4 shadow-sm flex items-start gap-3">
+    <div class="w-9 h-9 rounded-lg ${c.color} flex items-center justify-center text-sm font-bold shrink-0">${c.icon}</div>
+    <div class="flex-1">
+      <p class="text-sm font-semibold text-gray-800">${c.name}</p>
+      <p class="text-xs text-gray-400 mt-0.5">${c.desc}</p>
+      <div class="flex items-center gap-2 mt-2">
+        <span class="text-[11px] bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full">${status}</span>
+        <button class="text-[11px] text-brand hover:underline">Configure</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── Custom APIs ──────────────────────────────────────────────────────────────
+async function loadCustomApis() {
+  const el = document.getElementById('custom-api-list');
+  if (!backendOnline) { el.innerHTML = '<p class="text-sm text-gray-400">Backend offline.</p>'; return; }
+  try {
+    const r = await fetch(API + '/api/custom-apis');
+    const apis = await r.json();
+    if (!apis.length) { el.innerHTML = '<p class="text-sm text-gray-400">No custom APIs configured yet.</p>'; return; }
+    el.innerHTML = apis.map(a =>
+      `<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+        <div class="flex-1">
+          <p class="text-sm font-semibold text-gray-800">${escHtml(a.name)}</p>
+          <p class="text-xs text-gray-400">${escHtml(a.baseUrl||a.url||'')}</p>
+        </div>
+        <button onclick="deleteCustomApi(${a.id})" class="text-xs text-red-400 hover:text-red-600">Remove</button>
+      </div>`
+    ).join('');
+  } catch { el.innerHTML = '<p class="text-sm text-red-400">Failed to load custom APIs.</p>'; }
+}
+
+function showAddCustomApi() {
+  document.getElementById('custom-api-form').classList.remove('hidden');
+}
+
+async function saveCustomApi() {
+  const name = document.getElementById('api-name').value.trim();
+  const baseUrl = document.getElementById('api-url').value.trim();
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!name || !baseUrl) return;
+  if (!backendOnline) { alert('Backend offline'); return; }
+  await fetch(API + '/api/custom-apis', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name, baseUrl, apiKey })
+  });
+  document.getElementById('custom-api-form').classList.add('hidden');
+  loadCustomApis();
+}
+
+async function deleteCustomApi(id) {
+  if (!backendOnline) return;
+  await fetch(API + '/api/custom-apis/' + id, { method: 'DELETE' });
+  loadCustomApis();
+}
+
+// ─── Logs ─────────────────────────────────────────────────────────────────────
+async function loadLogs() {
+  const el = document.getElementById('logs-list');
+  if (!backendOnline) {
+    el.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">Backend not running — no logs to display.<br><span class="text-xs">Start with: <code>npm run dev:server</code></span></p>';
+    return;
+  }
+  el.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">Loading…</p>';
+  try {
+    const r = await fetch(API + '/api/logs?limit=50');
+    const data = await r.json();
+    const logs = Array.isArray(data) ? data : (data.logs || data.data || []);
+    if (!logs.length) { el.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">No log events yet.</p>'; return; }
+    el.innerHTML = logs.map(l =>
+      `<div class="bg-white rounded-lg border border-gray-100 px-4 py-2.5 flex items-start gap-3 shadow-sm">
+        <span class="text-[11px] font-mono text-gray-400 shrink-0 mt-0.5 w-16">${(l.createdAt||l.ts||'').slice(11,19)}</span>
+        <span class="text-[11px] px-2 py-0.5 rounded-full font-medium shrink-0 ${levelBadge(l.level)}">${l.level||'info'}</span>
+        <span class="text-xs text-gray-700 flex-1 min-w-0">${escHtml(l.event||l.message||'')}</span>
+        ${l.service ? `<span class="text-[11px] text-gray-400 shrink-0">${escHtml(l.service)}</span>` : ''}
+      </div>`
+    ).join('');
+  } catch { el.innerHTML = '<p class="text-sm text-red-400 text-center py-8">Failed to load logs.</p>'; }
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Bootstrap ────────────────────────────────────────────────────────────────
+(async () => {
+  await probeBackend();
+  loadDashboard();
+  loadConnectors();
+  // Fix flex visibility for non-hidden pages
+  document.getElementById('page-dashboard').classList.add('flex');
+})();
+</script>
+</body>
+</html>

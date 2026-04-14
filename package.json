@@ -17,7 +17,10 @@
     "build:app": "npm run build && electron-builder",
     "dev:server": "npm run dev --workspace=apps/server",
     "build:server": "npm run build --workspace=apps/server",
-    "build:desktop": "npm run build --workspace=apps/desktop"
+    "build:desktop": "npm run build --workspace=apps/desktop",
+    "gen:manifest": "node scripts/make-manifest.mjs",
+    "gen:bundle": "node scripts/make-bundle.mjs",
+    "gen:all": "npm run gen:manifest && npm run gen:bundle"
   },
   "dependencies": {
     "amazon-cognito-identity-js": "^6.3.12",
