@@ -157,15 +157,15 @@ function initSchema(db: Database.Database): void {
     );
 
     -- -----------------------------------------------------------------------
-    -- Prism Memory Units (MemPalace-inspired extraction — v2)
+    -- Prism Memory Units (Prism Memory Engine — v2)
     --
     -- Each row is a structured memory unit extracted from an imported document
     -- or connector payload. A single source document may yield many units.
     --
-    -- Terminology mapping (MemPalace → UserMap):
-    --   Wing/Hall → category  (decision | preference | milestone | problem | emotional | general)
-    --   Room      → topic     (free-text subtopic label inferred or user-assigned)
-    --   Drawer    → this row  (verbatim content chunk)
+    -- UserMap Prism Memory Engine terminology:
+    --   Category  → decision | preference | milestone | problem | emotional | general
+    --   Topic     → free-text subtopic label inferred or user-assigned
+    --   Unit      → this row (verbatim content chunk with provenance)
     -- -----------------------------------------------------------------------
     CREATE TABLE IF NOT EXISTS prism_memory_units (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -191,7 +191,7 @@ function initSchema(db: Database.Database): void {
       updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
     );
 
-    -- Full-text search over memory units (MemPalace L3-style deep search)
+    -- Full-text search over memory units (Prism deep search)
     CREATE VIRTUAL TABLE IF NOT EXISTS memory_units_fts USING fts5(
       content,
       category,

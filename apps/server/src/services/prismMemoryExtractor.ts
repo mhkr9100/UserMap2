@@ -1,16 +1,16 @@
 /**
- * prismMemoryExtractor.ts — Prism Memory Extractor v2
+ * prismMemoryExtractor.ts — Prism Memory Engine v2
  *
- * MemPalace-inspired extraction pipeline adapted for UserMap/Prism.
+ * Structured extraction pipeline for UserMap/Prism.
  *
- * Architecture mapping (MemPalace → UserMap):
- *   Wings      → Prism Nodes (top-level knowledge areas)
- *   Halls      → Memory Categories (decision, preference, milestone, problem, emotional)
- *   Rooms      → Topics within a node
- *   Drawers    → Memory Units (stored in prism_memory_units table)
- *   L3 Search  → FTS over prism_memory_units (memory_units_fts)
+ * Architecture (UserMap Prism Memory Engine):
+ *   Prism Nodes    → top-level knowledge areas
+ *   Categories     → decision | preference | milestone | problem | emotional | general
+ *   Topics         → subtopics within a node
+ *   Memory Units   → stored in prism_memory_units table
+ *   Deep Search    → FTS over prism_memory_units (memory_units_fts)
  *
- * Extraction strategy (ported from MemPalace general_extractor.py):
+ * Extraction strategy:
  *   - No LLM required. Pure keyword/pattern heuristics.
  *   - 5 memory categories with scored regex marker sets.
  *   - Sentence/paragraph segmentation, scoring, disambiguation.
@@ -67,7 +67,7 @@ export interface DeduplicationResult {
 }
 
 // ---------------------------------------------------------------------------
-// Marker sets (ported from MemPalace general_extractor.py)
+// Marker sets (Prism Memory Engine pattern library)
 // ---------------------------------------------------------------------------
 
 const DECISION_MARKERS: RegExp[] = [
@@ -212,7 +212,7 @@ const ALL_MARKERS: Record<Exclude<MemoryCategory, 'general'>, RegExp[]> = {
 };
 
 // ---------------------------------------------------------------------------
-// Sentiment helpers (from MemPalace disambiguation logic)
+// Sentiment helpers (Prism disambiguation logic)
 // ---------------------------------------------------------------------------
 
 const POSITIVE_WORDS = new Set([
@@ -320,7 +320,7 @@ function scoreMarkers(text: string, markers: RegExp[]): number {
 }
 
 // ---------------------------------------------------------------------------
-// Disambiguation (ported from MemPalace _disambiguate)
+// Disambiguation (Prism _disambiguate)
 // ---------------------------------------------------------------------------
 
 function disambiguate(
@@ -430,8 +430,7 @@ export function jaccardSimilarity(a: string, b: string): number {
 /**
  * Extract structured memory units from any text content.
  *
- * Inspired by MemPalace general_extractor.py — pure pattern heuristics,
- * no LLM required.
+ * Pure pattern heuristics — no LLM required.
  *
  * @param text           Raw text content to extract from.
  * @param minConfidence  Minimum confidence threshold (default 0.3).
@@ -490,7 +489,7 @@ export function extractMemories(text: string, minConfidence = 0.3): ExtractedMem
 }
 
 // ---------------------------------------------------------------------------
-// Conflict detection (MemPalace-inspired: flag don't overwrite)
+// Conflict detection (Prism rule: flag both sides, never silently overwrite)
 //
 // Two memories conflict if they share the same category and sufficient keyword
 // overlap but appear to express opposing or mutually exclusive facts.

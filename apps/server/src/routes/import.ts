@@ -218,7 +218,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       summary: `Persisted import document to canonical DB (doc id: ${documentId})`,
     });
 
-    // 5. Prism Memory Extraction v2 (MemPalace-inspired)
+    // 5. Prism Memory Extraction v2
     // Extract structured memory units from the imported content and persist them.
     // Each unit is categorised (decision, preference, milestone, problem, emotional),
     // deduplicated (exact hash + Jaccard near-dup), and conflict-flagged.
@@ -376,7 +376,7 @@ router.post('/text', async (req: Request, res: Response) => {
 
     const documentId = docResult.lastInsertRowid as number;
 
-    // Prism Memory Extraction v2 (MemPalace-inspired)
+    // Prism Memory Extraction v2
     const memories = extractMemories(contentToStore);
     let memoriesPersisted = 0;
     let memoriesDuplicates = 0;
