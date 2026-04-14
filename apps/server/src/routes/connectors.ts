@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getDb } from '../db/index.js';
 import { appendLog } from './logs.js';
+import { syncSlack } from '../services/slackSync.js';
 
 const router = Router();
 
@@ -85,8 +86,9 @@ router.patch('/:id', (req: Request, res: Response) => {
 /**
  * POST /api/connectors/:id/sync
  * Trigger an immediate sync attempt (mark last_run / last_status).
+ * For Slack connectors, runs the real message-fetch pipeline.
  */
-router.post('/:id/sync', (req: Request, res: Response) => {
+router.post('/:id/sync', async (req: Request, res: Response) => {
   const db = getDb();
   const row = db.prepare('SELECT * FROM connector_config WHERE id = ?').get(req.params.id) as ConnectorConfig | undefined;
   if (!row) return res.status(404).json({ error: 'Not found' });
@@ -101,6 +103,27 @@ router.post('/:id/sync', (req: Request, res: Response) => {
     object_ref: row.name,
     summary: `Manual sync triggered for ${row.name}`,
   });
+
+  if (row.connector_type === 'slack') {
+    try {
+      const results = await syncSlack();
+      const totalImported = results.reduce((s, r) => s + r.messages_imported, 0);
+      return res.json({ ok: true, message: `Slack sync complete: ${totalImported} messages imported`, results });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      db.prepare(`UPDATE connector_config SET last_status = 'error', last_error = ?, updated_at = datetime('now') WHERE id = ?`)
+        .run(message, req.params.id);
+      appendLog({
+        event_type: 'slack.sync.error',
+        source_tool: 'slack',
+        actor: 'system',
+        object_ref: row.name,
+        summary: `Slack sync failed: ${message}`,
+        severity: 'error',
+      });
+      return res.status(500).json({ ok: false, error: message });
+    }
+  }
 
   res.json({ ok: true, message: `Sync triggered for ${row.name}` });
 });

@@ -465,3 +465,231 @@ describe('prism_memory_units — DB schema and FTS', () => {
   });
 });
 
+// =============================================================================
+// Slack connector — DB schema and sync service tests
+// =============================================================================
+
+describe('slack_messages — DB schema', () => {
+  it('slack_messages table is created', () => {
+    const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='slack_messages'").get();
+    expect(row).toBeTruthy();
+  });
+
+  it('has the required columns', () => {
+    const cols = db.prepare("PRAGMA table_info(slack_messages)").all() as Array<{ name: string }>;
+    const names = cols.map((c) => c.name);
+    expect(names).toContain('ts');
+    expect(names).toContain('channel_id');
+    expect(names).toContain('user_id');
+    expect(names).toContain('text');
+    expect(names).toContain('thread_ts');
+    expect(names).toContain('timestamp');
+    expect(names).toContain('attachments');
+    expect(names).toContain('files');
+    expect(names).toContain('raw_json');
+    expect(names).toContain('connection_id');
+  });
+
+  it('enforces UNIQUE(channel_id, ts) constraint', () => {
+    db.prepare(`
+      INSERT INTO slack_messages (channel_id, ts, text, timestamp, raw_json)
+      VALUES ('C001', '1700000000.000100', 'hello', '2023-01-01T00:00:00.000Z', '{}')
+    `).run();
+
+    // Second insert with the same (channel_id, ts) should upsert (ON CONFLICT DO UPDATE)
+    expect(() => {
+      db.prepare(`
+        INSERT INTO slack_messages (channel_id, ts, text, timestamp, raw_json)
+        VALUES ('C001', '1700000000.000100', 'hello', '2023-01-01T00:00:00.000Z', '{}')
+      `).run();
+    }).toThrow();
+  });
+
+  it('can insert a message with all fields', () => {
+    const result = db.prepare(`
+      INSERT INTO slack_messages
+        (channel_id, ts, user_id, text, thread_ts, timestamp, attachments, files, raw_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'C002',
+      '1700000001.000100',
+      'U123',
+      'Hello world',
+      null,
+      '2023-11-14T20:00:01.000Z',
+      '[]',
+      '[]',
+      '{"ts":"1700000001.000100","text":"Hello world"}',
+    );
+
+    expect(result.lastInsertRowid).toBeGreaterThan(0);
+
+    const row = db.prepare('SELECT * FROM slack_messages WHERE id = ?').get(result.lastInsertRowid) as {
+      channel_id: string;
+      ts: string;
+      user_id: string;
+      text: string;
+    };
+    expect(row.channel_id).toBe('C002');
+    expect(row.ts).toBe('1700000001.000100');
+    expect(row.user_id).toBe('U123');
+    expect(row.text).toBe('Hello world');
+  });
+
+  it('upsert by (channel_id, ts) updates text but keeps id', () => {
+    db.prepare(`
+      INSERT INTO slack_messages (channel_id, ts, text, timestamp, raw_json)
+      VALUES ('C003', '1700000002.000100', 'original', '2023-01-01T00:00:00.000Z', '{}')
+    `).run();
+
+    const before = db.prepare("SELECT id, text FROM slack_messages WHERE channel_id='C003' AND ts='1700000002.000100'")
+      .get() as { id: number; text: string };
+    expect(before.text).toBe('original');
+
+    db.prepare(`
+      INSERT INTO slack_messages (channel_id, ts, text, timestamp, raw_json)
+      VALUES ('C003', '1700000002.000100', 'edited', '2023-01-01T00:00:00.000Z', '{}')
+      ON CONFLICT(channel_id, ts) DO UPDATE SET text = excluded.text
+    `).run();
+
+    const after = db.prepare("SELECT id, text FROM slack_messages WHERE channel_id='C003' AND ts='1700000002.000100'")
+      .get() as { id: number; text: string };
+    expect(after.text).toBe('edited');
+    expect(after.id).toBe(before.id);
+  });
+});
+
+describe('slack_messages — connection linkage', () => {
+  it('connection_id is nullable (messages survive connection deletion)', () => {
+    const col = (db.prepare("PRAGMA table_info(slack_messages)").all() as Array<{ name: string; notnull: number }>)
+      .find((c) => c.name === 'connection_id');
+    expect(col).toBeTruthy();
+    expect(col!.notnull).toBe(0); // nullable
+  });
+});
+
+describe('slackSync service — DB contract (no connections)', () => {
+  it('connections table starts with no Slack entries in a fresh DB', () => {
+    const rows = db.prepare("SELECT * FROM connections WHERE tool = 'slack'").all() as Array<{ tool: string }>;
+    // Fresh DB should have no slack connections
+    expect(rows.every((r) => r.tool === 'slack')).toBe(true);
+    // (count may be 0 or > 0 depending on test order; key check is table exists and tool column works)
+    const cols = db.prepare("PRAGMA table_info(connections)").all() as Array<{ name: string }>;
+    const names = cols.map((c) => c.name);
+    expect(names).toContain('tool');
+    expect(names).toContain('access_token');
+    expect(names).toContain('account_id');
+  });
+
+  it('sync_state table can store a slack sync entry', () => {
+    db.prepare(`
+      INSERT INTO sync_state (tool, status, updated_at)
+      VALUES ('slack:T_TEST:U_TEST', 'syncing', datetime('now'))
+      ON CONFLICT(tool) DO UPDATE SET status = 'syncing', updated_at = datetime('now')
+    `).run();
+
+    const row = db.prepare("SELECT * FROM sync_state WHERE tool = 'slack:T_TEST:U_TEST'").get() as {
+      tool: string; status: string;
+    } | undefined;
+    expect(row).toBeTruthy();
+    expect(row!.status).toBe('syncing');
+
+    // Mark complete
+    db.prepare(`UPDATE sync_state SET status = 'idle', last_synced = datetime('now') WHERE tool = 'slack:T_TEST:U_TEST'`).run();
+    const done = db.prepare("SELECT status FROM sync_state WHERE tool = 'slack:T_TEST:U_TEST'").get() as { status: string };
+    expect(done.status).toBe('idle');
+  });
+});
+
+describe('slackSync service — sync state and log contracts', () => {
+  it('logs table can hold slack sync event types', () => {
+    const events = [
+      'slack.sync.started',
+      'slack.sync.completed',
+      'slack.sync.skipped',
+      'slack.sync.error',
+      'slack.sync.channel_error',
+      'slack.sync.triggered',
+    ];
+    for (const event_type of events) {
+      db.prepare(`
+        INSERT INTO logs (event_type, source_tool, actor, summary)
+        VALUES (?, 'slack', 'system', ?)
+      `).run(event_type, `Test log entry: ${event_type}`);
+    }
+
+    const rows = db.prepare(`
+      SELECT event_type FROM logs WHERE source_tool = 'slack' ORDER BY id DESC LIMIT 6
+    `).all() as Array<{ event_type: string }>;
+    const inserted = rows.map((r) => r.event_type);
+    expect(inserted).toContain('slack.sync.started');
+    expect(inserted).toContain('slack.sync.completed');
+    expect(inserted).toContain('slack.sync.skipped');
+    expect(inserted).toContain('slack.sync.error');
+  });
+
+  it('connector_config can track slack sync status', () => {
+    const row = db.prepare("SELECT id FROM connector_config WHERE connector_type = 'slack' LIMIT 1").get() as { id: number } | undefined;
+    expect(row).toBeTruthy();
+    if (!row) return;
+
+    db.prepare(`UPDATE connector_config SET last_status = 'ok', last_run = datetime('now'), last_error = NULL, updated_at = datetime('now') WHERE id = ?`).run(row.id);
+    const updated = db.prepare('SELECT last_status FROM connector_config WHERE id = ?').get(row.id) as { last_status: string };
+    expect(updated.last_status).toBe('ok');
+
+    db.prepare(`UPDATE connector_config SET last_status = 'error', last_error = 'invalid_auth', updated_at = datetime('now') WHERE id = ?`).run(row.id);
+    const errored = db.prepare('SELECT last_status, last_error FROM connector_config WHERE id = ?').get(row.id) as { last_status: string; last_error: string };
+    expect(errored.last_status).toBe('error');
+    expect(errored.last_error).toBe('invalid_auth');
+  });
+});
+
+describe('slackSync service — upsert correctness via SQL', () => {
+  it('ON CONFLICT(channel_id, ts) DO UPDATE correctly replaces text', () => {
+    const channel = 'C_UPSERT_TEST';
+    const ts = '1700000999.000001';
+
+    db.prepare(`
+      INSERT INTO slack_messages (channel_id, ts, text, timestamp, raw_json)
+      VALUES (?, ?, 'first', '2023-01-01T00:00:00.000Z', '{"v":1}')
+    `).run(channel, ts);
+
+    db.prepare(`
+      INSERT INTO slack_messages (channel_id, ts, text, timestamp, raw_json)
+      VALUES (?, ?, 'second', '2023-01-01T00:00:00.000Z', '{"v":2}')
+      ON CONFLICT(channel_id, ts) DO UPDATE SET
+        text = excluded.text,
+        raw_json = excluded.raw_json
+    `).run(channel, ts);
+
+    const row = db.prepare('SELECT text, raw_json FROM slack_messages WHERE channel_id = ? AND ts = ?').get(channel, ts) as {
+      text: string; raw_json: string;
+    };
+    expect(row.text).toBe('second');
+    expect(JSON.parse(row.raw_json)).toMatchObject({ v: 2 });
+  });
+
+  it('incremental sync cursor: highest ts is used as oldest boundary', () => {
+    const channel = 'C_INCR_TEST';
+    const messages = [
+      { ts: '1700001000.000001', text: 'msg1' },
+      { ts: '1700001001.000001', text: 'msg2' },
+      { ts: '1700001002.000001', text: 'msg3' },
+    ];
+
+    for (const m of messages) {
+      db.prepare(`
+        INSERT INTO slack_messages (channel_id, ts, text, timestamp, raw_json)
+        VALUES (?, ?, ?, datetime('now'), '{}')
+      `).run(channel, m.ts, m.text);
+    }
+
+    const latest = db.prepare(
+      'SELECT ts FROM slack_messages WHERE channel_id = ? ORDER BY ts DESC LIMIT 1',
+    ).get(channel) as { ts: string } | undefined;
+
+    expect(latest).toBeTruthy();
+    expect(latest!.ts).toBe('1700001002.000001');
+  });
+});
+

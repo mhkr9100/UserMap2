@@ -13,6 +13,7 @@ import connectorsRouter from './routes/connectors.js';
 import dashboardRouter from './routes/dashboard.js';
 import importRouter from './routes/import.js';
 import customApisRouter from './routes/custom-apis.js';
+import slackMessagesRouter from './routes/slack-messages.js';
 
 const PORT = parseInt(process.env.PORT ?? '5185', 10);
 const APP_URL = process.env.APP_URL ?? `http://localhost:${PORT}`;
@@ -49,6 +50,7 @@ app.use('/api/connectors', connectorsRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/import', importRouter);
 app.use('/api/custom-apis', customApisRouter);
+app.use('/api/slack', slackMessagesRouter);
 
 
 // 404 handler
