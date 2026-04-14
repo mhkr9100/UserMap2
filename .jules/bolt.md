@@ -1,0 +1,3 @@
+## 2025-02-28 - Visualization Memoization
+**Learning:** In React visualization components (like FlowChartView), performing expensive O(N) tree layout derivations and mapping in the main render body can cause severe UI stuttering during frequent interaction-driven local state updates (like panning and zooming). The layout only depends on the source tree, but panning causes re-renders 60+ times per second.
+**Action:** Always wrap tree layout computations (`buildGraph`) and index maps (`nodeMap`) with `useMemo` using `[tree]` as the dependency array, isolating the O(N) operations from high-frequency interaction state updates.
