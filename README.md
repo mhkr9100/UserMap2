@@ -1,3 +1,5 @@
+> **This repository has moved.** The project now lives at [mhkr9100/UserMap](https://github.com/mhkr9100/UserMap). This code is kept there as the [`usermap2`](https://github.com/mhkr9100/UserMap/tree/usermap2) branch, with its full history. This repository is archived and no longer updated.
+
 # UserMap — Personal Context OS
 
 > **AI knows the world. UserMap helps AI know *you*.**
